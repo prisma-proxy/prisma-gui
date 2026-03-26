@@ -17,7 +17,10 @@ unsafe fn read_owned_cstr(ptr: *mut c_char) -> Option<String> {
 }
 
 fn client_ptr(state: &tauri::State<AppState>) -> Result<*mut prisma_ffi::PrismaClient, String> {
-    let raw = *state.client.lock().map_err(|_| "Failed to acquire client lock".to_string())?;
+    let raw = *state
+        .client
+        .lock()
+        .map_err(|_| "Failed to acquire client lock".to_string())?;
     if raw == 0 {
         return Err("no client".into());
     }
@@ -179,12 +182,11 @@ pub fn clear_system_proxy() -> Result<(), String> {
 #[tauri::command]
 pub async fn check_update(proxy_port: Option<u16>) -> Result<Option<serde_json::Value>, String> {
     let port = proxy_port.unwrap_or(0);
-    let result = tokio::task::spawn_blocking(move || {
-        prisma_core::auto_update::check_with_proxy(port)
-    })
-    .await
-    .map_err(|e| e.to_string())?
-    .map_err(|e| e.to_string())?;
+    let result =
+        tokio::task::spawn_blocking(move || prisma_core::auto_update::check_with_proxy(port))
+            .await
+            .map_err(|e| e.to_string())?
+            .map_err(|e| e.to_string())?;
 
     match result {
         Some(info) => Ok(serde_json::to_value(info).ok()),
@@ -224,10 +226,7 @@ pub async fn apply_update(
         prisma_core::auto_update::self_replace(&bytes).map_err(|e| e.to_string())?;
 
         // Emit done
-        let _ = app_clone.emit(
-            "update-progress",
-            serde_json::json!({"phase": "done"}),
-        );
+        let _ = app_clone.emit("update-progress", serde_json::json!({"phase": "done"}));
 
         Ok::<(), String>(())
     })
@@ -501,13 +500,20 @@ pub async fn download_file(url: String, dest_path: String, proxy_port: u16) -> R
     #[cfg(target_os = "windows")]
     {
         let normalized = dest_path.replace('/', "\\");
-        if normalized.starts_with("\\\\") || normalized.starts_with("C:\\Windows") || normalized.starts_with("C:\\Program Files") {
+        if normalized.starts_with("\\\\")
+            || normalized.starts_with("C:\\Windows")
+            || normalized.starts_with("C:\\Program Files")
+        {
             return Err("Invalid path: writing to sensitive directory not allowed".into());
         }
     }
     #[cfg(not(target_os = "windows"))]
     {
-        if dest_path.starts_with("/etc") || dest_path.starts_with("/usr") || dest_path.starts_with("/bin") || dest_path.starts_with("/sbin") {
+        if dest_path.starts_with("/etc")
+            || dest_path.starts_with("/usr")
+            || dest_path.starts_with("/bin")
+            || dest_path.starts_with("/sbin")
+        {
             return Err("Invalid path: writing to sensitive directory not allowed".into());
         }
     }

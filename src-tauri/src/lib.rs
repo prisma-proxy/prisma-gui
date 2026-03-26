@@ -144,7 +144,9 @@ pub fn run() {
                         if let Ok(raw) = app_state.client.lock() {
                             let ptr = *raw as *mut prisma_ffi::PrismaClient;
                             if !ptr.is_null() && *raw != 0 {
-                                unsafe { prisma_ffi::prisma_destroy(ptr); }
+                                unsafe {
+                                    prisma_ffi::prisma_destroy(ptr);
+                                }
                             }
                         }
                     }

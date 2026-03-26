@@ -566,7 +566,9 @@ pub fn update_tooltip(handle: &AppHandle, stats: &TrayStatsUpdate<'_>) {
     }
     if let Ok(g) = crate::state::TRAY_STAT_DOWNLOAD.lock() {
         if let Some(item) = g.as_ref() {
-            if let Err(e) = item.set_text(format!("\u{2193} Download: {}", fmt_speed(stats.down_bps))) {
+            if let Err(e) =
+                item.set_text(format!("\u{2193} Download: {}", fmt_speed(stats.down_bps)))
+            {
                 tracing::warn!("Failed to set tray stat text: {}", e);
             }
         }
