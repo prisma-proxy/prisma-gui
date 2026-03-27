@@ -54,11 +54,6 @@ git clone --recurse-submodules https://github.com/prisma-proxy/prisma-gui.git
 cd prisma-gui
 npm install
 
-# Or from monorepo (current)
-cd apps/prisma-gui
-npm install
-```
-
 ### Development
 
 ```bash
@@ -127,6 +122,14 @@ src-tauri/             Tauri Rust backend
 | Routing | React Router v7 |
 | i18n | i18next + react-i18next |
 | Backend | Rust, prisma-ffi (C FFI) |
+
+## Related Repositories
+
+| Repository | Description |
+|------------|-------------|
+| [prisma](https://github.com/prisma-proxy/prisma) | Core Rust workspace (server, client, CLI, FFI, management API) |
+| [prisma-console](https://github.com/prisma-proxy/prisma-console) | Web management dashboard (Next.js) |
+| [prisma-docs](https://github.com/prisma-proxy/prisma-docs) | Documentation site (Docusaurus) |
 
 ## License
 
