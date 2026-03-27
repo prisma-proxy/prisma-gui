@@ -737,7 +737,9 @@
     "presetApplied": "Applied preset \"{{name}}\"",
     "applyPreset": "Apply",
     "appsCount": "apps",
-    "save": "Save"
+    "save": "Save",
+    "fetchTimeout": "Timed out scanning running applications. Try again.",
+    "elevationCheckFailed": "Could not determine administrator privilege status"
   },
   "language": {
     "english": "English",

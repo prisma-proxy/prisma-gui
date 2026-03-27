@@ -737,7 +737,9 @@
     "presetApplied": "已应用预设「{{name}}」",
     "applyPreset": "应用",
     "appsCount": "个应用",
-    "save": "保存"
+    "save": "保存",
+    "fetchTimeout": "扫描运行中的应用超时，请重试。",
+    "elevationCheckFailed": "无法确定管理员权限状态"
   },
   "language": {
     "english": "English",

@@ -14,11 +14,13 @@ export interface PerAppState {
   apps: string[];
   presets: PerAppPreset[];
   activePresetId: string | null;
+  elevation: boolean | null;
 
   setEnabled: (v: boolean) => void;
   setMode: (v: "include" | "exclude") => void;
   setApps: (apps: string[]) => void;
   toggleApp: (app: string) => void;
+  setElevation: (v: boolean | null) => void;
   addPreset: (name: string) => void;
   applyPreset: (id: string) => void;
   deletePreset: (id: string) => void;
@@ -33,10 +35,12 @@ export const usePerApp = create<PerAppState>()(
       apps: [],
       presets: [],
       activePresetId: null,
+      elevation: null,
 
       setEnabled: (v) => set({ enabled: v }),
       setMode: (v) => set({ mode: v, activePresetId: null }),
       setApps: (apps) => set({ apps, activePresetId: null }),
+      setElevation: (v) => set({ elevation: v }),
       toggleApp: (app) =>
         set((state) => ({
           apps: state.apps.includes(app)
@@ -74,7 +78,7 @@ export const usePerApp = create<PerAppState>()(
         })),
 
       reset: () =>
-        set({ enabled: false, mode: "include", apps: [], activePresetId: null }),
+        set({ enabled: false, mode: "include", apps: [], activePresetId: null, elevation: null }),
     }),
     { name: "prisma-perapp" }
   )

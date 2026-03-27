@@ -129,7 +129,6 @@ export default function PerApp() {
   const [runningApps, setRunningApps] = useState<string[]>([]);
   const [appsLoading, setAppsLoading] = useState(false);
   const [appSearch, setAppSearch] = useState("");
-  const [isElevated, setIsElevated] = useState<boolean | null>(null);
   const [presetDialogOpen, setPresetDialogOpen] = useState(false);
   const [newPresetName, setNewPresetName] = useState("");
 
@@ -138,10 +137,20 @@ export default function PerApp() {
   async function fetchRunningApps() {
     try {
       setAppsLoading(true);
-      const apps = await api.getRunningApps();
+      const apps = await Promise.race([
+        api.getRunningApps(),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error("Timed out fetching running apps")), 10_000)
+        ),
+      ]);
       setRunningApps(apps);
     } catch (e) {
-      notify.error(String(e));
+      const msg = String(e);
+      if (msg.includes("Timed out")) {
+        notify.warning(t("perApp.fetchTimeout"));
+      } else {
+        notify.error(msg);
+      }
     } finally {
       setAppsLoading(false);
     }
@@ -152,9 +161,10 @@ export default function PerApp() {
   async function checkElevationStatus() {
     try {
       const elevated = await api.checkElevation();
-      setIsElevated(elevated);
-    } catch {
-      setIsElevated(false);
+      usePerApp.getState().setElevation(elevated);
+    } catch (e) {
+      usePerApp.getState().setElevation(false);
+      notify.warning(t("perApp.elevationCheckFailed"));
     }
   }
 
@@ -184,7 +194,15 @@ export default function PerApp() {
         apps: perApp.apps,
       });
       await api.setPerAppFilter(filterJson);
-      notify.success(t("perApp.applied"));
+      // Verify the filter was applied by reading it back
+      const active = await api.getPerAppFilter();
+      if (active) {
+        notify.success(
+          t("perApp.applied") + ` (${active.apps.length} ${t("perApp.appsCount")})`
+        );
+      } else {
+        notify.success(t("perApp.applied"));
+      }
     } catch {
       notify.error(t("perApp.applyError"));
     }
@@ -265,9 +283,9 @@ export default function PerApp() {
                 </div>
 
                 {/* Elevation indicator */}
-                {isElevated !== null && (
+                {perApp.elevation !== null && (
                   <div className="flex items-center gap-2 text-xs">
-                    {isElevated ? (
+                    {perApp.elevation ? (
                       <>
                         <Shield size={14} className="text-green-500" />
                         <span className="text-green-600 dark:text-green-400">

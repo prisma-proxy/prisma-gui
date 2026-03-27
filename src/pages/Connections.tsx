@@ -66,11 +66,17 @@ function connDuration(conn: TrackedConnection): number {
   return Math.max(0, Math.floor((end - conn.startedAt) / 1000));
 }
 
-/** Single shared tick drives all duration displays — avoids N timers for N rows. */
+/** Single shared tick drives all duration displays — avoids N timers for N rows.
+ *  For closed connections, compute duration once from closedAt - startedAt (no tick needed).
+ */
 function LiveDuration({ startedAt, closedAt, tick }: { startedAt: number; closedAt: number | null; tick: number }) {
-  void tick; // used only to trigger re-render
-  const end = closedAt ?? Date.now();
-  const elapsed = Math.max(0, Math.floor((end - startedAt) / 1000));
+  if (closedAt != null) {
+    // Static: no need for tick-driven re-renders
+    const elapsed = Math.max(0, Math.floor((closedAt - startedAt) / 1000));
+    return <span>{fmtDuration(elapsed)}</span>;
+  }
+  void tick; // used only to trigger re-render for active connections
+  const elapsed = Math.max(0, Math.floor((Date.now() - startedAt) / 1000));
   return <span>{fmtDuration(elapsed)}</span>;
 }
 
@@ -537,7 +543,7 @@ export default function Connections() {
                         {fmtBytes(conn.bytesUp)}
                       </div>
                       <div className="text-right font-mono text-muted-foreground">
-                        <LiveDuration startedAt={conn.startedAt} closedAt={conn.closedAt} tick={tick} />
+                        <LiveDuration startedAt={conn.startedAt} closedAt={conn.closedAt} tick={conn.closedAt ? 0 : tick} />
                       </div>
                       <div className="flex items-center justify-center">
                         {conn.status === "active" && (
@@ -594,7 +600,7 @@ export default function Connections() {
                         {fmtBytes(conn.bytesDown)}
                       </div>
                       <div className="text-right font-mono text-muted-foreground">
-                        <LiveDuration startedAt={conn.startedAt} closedAt={conn.closedAt} tick={tick} />
+                        <LiveDuration startedAt={conn.startedAt} closedAt={conn.closedAt} tick={conn.closedAt ? 0 : tick} />
                       </div>
                       <div className="flex items-center justify-center">
                         {conn.status === "active" && (

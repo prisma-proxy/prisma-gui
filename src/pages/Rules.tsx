@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import React, { useState, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import {
   Plus, Trash2, Info, Download, Upload, Layers,
@@ -70,6 +70,128 @@ function isPresetFullyApplied(preset: RulePreset, currentRules: Rule[]): boolean
   const existing = new Set(currentRules.map((r) => `${r.type}|${r.match}|${r.action}`));
   return preset.rules.every((r) => existing.has(`${r.type}|${r.match}|${r.action}`));
 }
+
+// ── Memoized row components ──────────────────────────────────────────────
+
+interface RuleRowProps {
+  rule: Rule;
+  onRemove: (id: string) => void;
+}
+
+const RuleRow = React.memo(function RuleRow({ rule: r, onRemove }: RuleRowProps) {
+  return (
+    <TableRow>
+      <TableCell className="font-mono text-xs">{r.type}</TableCell>
+      <TableCell className="text-sm hidden sm:table-cell">{r.match || "\u2014"}</TableCell>
+      <TableCell className="text-xs sm:text-sm">
+        <span className={
+          r.action === "PROXY"  ? "text-green-400" :
+          r.action === "REJECT" ? "text-red-400"   : "text-muted-foreground"
+        }>
+          {r.action}
+        </span>
+      </TableCell>
+      <TableCell>
+        <Button size="icon" variant="ghost" onClick={() => onRemove(r.id)}>
+          <Trash2 size={14} className="text-destructive" />
+        </Button>
+      </TableCell>
+    </TableRow>
+  );
+});
+
+interface ProviderRowProps {
+  provider: RuleProvider;
+  updating: boolean;
+  onToggle: (id: string) => void;
+  onSetDownloadMode: (id: string, mode: DownloadMode) => void;
+  onUpdate: (provider: RuleProvider) => void;
+  onRemove: (id: string) => void;
+  t: (key: string, opts?: Record<string, unknown>) => string;
+}
+
+const ProviderRow = React.memo(function ProviderRow({
+  provider,
+  updating,
+  onToggle,
+  onSetDownloadMode,
+  onUpdate,
+  onRemove,
+  t,
+}: ProviderRowProps) {
+  return (
+    <div className="flex items-center justify-between rounded-md border p-3 gap-3">
+      <div className="flex items-center gap-3 flex-1 min-w-0">
+        <Switch
+          checked={provider.enabled}
+          onCheckedChange={() => onToggle(provider.id)}
+          aria-label={t("rules.toggleProvider")}
+        />
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <span className="font-medium text-sm truncate">{provider.name}</span>
+            <Badge variant="outline" className="text-[10px] shrink-0">
+              {provider.behavior}
+            </Badge>
+            <Badge
+              variant={
+                provider.action === "PROXY" ? "success" :
+                provider.action === "REJECT" ? "destructive" : "secondary"
+              }
+              className="text-[10px] shrink-0"
+            >
+              {provider.action}
+            </Badge>
+          </div>
+          <div className="text-xs text-muted-foreground truncate">{provider.url}</div>
+          {provider.lastUpdated && (
+            <div className="text-[10px] text-muted-foreground mt-0.5">
+              {t("rules.providerLastUpdated", {
+                time: new Date(provider.lastUpdated).toLocaleString(),
+              })}
+              {provider.ruleCount > 0 && ` \u00b7 ${t("rules.providerRuleCount", { count: provider.ruleCount })}`}
+            </div>
+          )}
+        </div>
+      </div>
+      <div className="flex items-center gap-1 shrink-0">
+        <Select
+          value={provider.downloadMode || "auto"}
+          onValueChange={(v) => onSetDownloadMode(provider.id, v as DownloadMode)}
+        >
+          <SelectTrigger className="h-7 w-[72px] text-[10px]">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="auto">{t("rules.downloadAuto")}</SelectItem>
+            <SelectItem value="direct">{t("rules.downloadDirect")}</SelectItem>
+            <SelectItem value="proxy">{t("rules.downloadProxy")}</SelectItem>
+          </SelectContent>
+        </Select>
+        <Button
+          size="icon"
+          variant="ghost"
+          onClick={() => onUpdate(provider)}
+          disabled={updating}
+          title={t("rules.updateProvider")}
+        >
+          <RefreshCw
+            size={14}
+            className={updating ? "animate-spin" : ""}
+          />
+        </Button>
+        <Button
+          size="icon"
+          variant="ghost"
+          onClick={() => onRemove(provider.id)}
+          title={t("rules.removeProvider")}
+        >
+          <Trash2 size={14} className="text-destructive" />
+        </Button>
+      </div>
+    </div>
+  );
+});
 
 // ── Main Component ───────────────────────────────────────────────────────
 
@@ -438,23 +560,11 @@ export default function Rules() {
                   </TableRow>
                 )}
                 {rules.map((r) => (
-                  <TableRow key={r.id}>
-                    <TableCell className="font-mono text-xs">{r.type}</TableCell>
-                    <TableCell className="text-sm hidden sm:table-cell">{r.match || "\u2014"}</TableCell>
-                    <TableCell className="text-xs sm:text-sm">
-                      <span className={
-                        r.action === "PROXY"  ? "text-green-400" :
-                        r.action === "REJECT" ? "text-red-400"   : "text-muted-foreground"
-                      }>
-                        {r.action}
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      <Button size="icon" variant="ghost" onClick={() => { removeRule(r.id); reconnectIfActive(); }}>
-                        <Trash2 size={14} className="text-destructive" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
+                  <RuleRow
+                    key={r.id}
+                    rule={r}
+                    onRemove={(id) => { removeRule(id); reconnectIfActive(); }}
+                  />
                 ))}
               </TableBody>
             </Table>
@@ -497,79 +607,16 @@ export default function Rules() {
               )}
 
               {providers.map((provider) => (
-                <div
+                <ProviderRow
                   key={provider.id}
-                  className="flex items-center justify-between rounded-md border p-3 gap-3"
-                >
-                  <div className="flex items-center gap-3 flex-1 min-w-0">
-                    <Switch
-                      checked={provider.enabled}
-                      onCheckedChange={() => { toggleProvider(provider.id); reconnectIfActive(); }}
-                      aria-label={t("rules.toggleProvider")}
-                    />
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium text-sm truncate">{provider.name}</span>
-                        <Badge variant="outline" className="text-[10px] shrink-0">
-                          {provider.behavior}
-                        </Badge>
-                        <Badge
-                          variant={
-                            provider.action === "PROXY" ? "success" :
-                            provider.action === "REJECT" ? "destructive" : "secondary"
-                          }
-                          className="text-[10px] shrink-0"
-                        >
-                          {provider.action}
-                        </Badge>
-                      </div>
-                      <div className="text-xs text-muted-foreground truncate">{provider.url}</div>
-                      {provider.lastUpdated && (
-                        <div className="text-[10px] text-muted-foreground mt-0.5">
-                          {t("rules.providerLastUpdated", {
-                            time: new Date(provider.lastUpdated).toLocaleString(),
-                          })}
-                          {provider.ruleCount > 0 && ` \u00b7 ${t("rules.providerRuleCount", { count: provider.ruleCount })}`}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-1 shrink-0">
-                    <Select
-                      value={provider.downloadMode || "auto"}
-                      onValueChange={(v) => setDownloadMode(provider.id, v as DownloadMode)}
-                    >
-                      <SelectTrigger className="h-7 w-[72px] text-[10px]">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="auto">{t("rules.downloadAuto")}</SelectItem>
-                        <SelectItem value="direct">{t("rules.downloadDirect")}</SelectItem>
-                        <SelectItem value="proxy">{t("rules.downloadProxy")}</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      onClick={() => handleUpdateProvider(provider)}
-                      disabled={updatingProviders.has(provider.id)}
-                      title={t("rules.updateProvider")}
-                    >
-                      <RefreshCw
-                        size={14}
-                        className={updatingProviders.has(provider.id) ? "animate-spin" : ""}
-                      />
-                    </Button>
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      onClick={() => { removeProvider(provider.id); reconnectIfActive(); }}
-                      title={t("rules.removeProvider")}
-                    >
-                      <Trash2 size={14} className="text-destructive" />
-                    </Button>
-                  </div>
-                </div>
+                  provider={provider}
+                  updating={updatingProviders.has(provider.id)}
+                  onToggle={(id) => { toggleProvider(id); reconnectIfActive(); }}
+                  onSetDownloadMode={setDownloadMode}
+                  onUpdate={handleUpdateProvider}
+                  onRemove={(id) => { removeProvider(id); reconnectIfActive(); }}
+                  t={t}
+                />
               ))}
 
               {/* Suggested providers */}

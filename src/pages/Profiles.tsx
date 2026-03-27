@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo, useCallback, useRef } from "react";
+import React, { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { Plus, ScanLine, MoreHorizontal, Pencil, Copy, Trash2, Download, Upload, Search, Share2, FileCode, Link, QrCode, Check, Globe, RefreshCw, Loader2, Signal, Zap, ImagePlus, Camera, VideoOff } from "lucide-react";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
@@ -27,7 +27,7 @@ import QrDisplay from "@/components/QrDisplay";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import ProfileDialog from "@/components/ProfileDialog";
 import { useStore } from "@/store";
-import { useProfileMetrics } from "@/store/profileMetrics";
+import { useProfileMetrics, type ProfileMetrics } from "@/store/profileMetrics";
 import { useConnection } from "@/hooks/useConnection";
 import { notify } from "@/store/notifications";
 import { api } from "@/lib/commands";
@@ -51,11 +51,145 @@ interface LatencyEntry {
 
 const LATENCY_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
+const EMPTY_METRICS: ProfileMetrics = {
+  lastLatencyMs: null,
+  lastConnectedAt: null,
+  totalBytesUp: 0,
+  totalBytesDown: 0,
+  connectCount: 0,
+  totalUptimeSecs: 0,
+  lastSessionSecs: 0,
+  peakSpeedDownBps: 0,
+  peakSpeedUpBps: 0,
+};
+
 function getServerAddr(config: unknown): string | null {
   if (!config || typeof config !== "object") return null;
   const c = config as Record<string, unknown>;
   return typeof c.server_addr === "string" ? c.server_addr : null;
 }
+
+interface ProfileCardProps {
+  profile: Profile;
+  pm: ProfileMetrics;
+  latencyEntry: LatencyEntry | undefined;
+  isActive: boolean;
+  onClick: (p: Profile) => void;
+  onEdit: (p: Profile) => void;
+  onDuplicate: (p: Profile) => void;
+  onShare: (p: Profile) => void;
+  onDelete: (p: Profile) => void;
+  t: (key: string, opts?: Record<string, unknown>) => string;
+}
+
+const ProfileCard = React.memo(function ProfileCard({
+  profile: p,
+  pm,
+  latencyEntry: le,
+  isActive,
+  onClick,
+  onEdit,
+  onDuplicate,
+  onShare,
+  onDelete,
+  t,
+}: ProfileCardProps) {
+  return (
+    <div
+      onClick={() => onClick(p)}
+      className={`flex items-center justify-between rounded-lg border bg-card px-4 py-3 cursor-pointer transition-colors hover:bg-accent/50 ${
+        isActive ? "border-l-4 border-l-green-500 border-green-500/30" : ""
+      }`}
+    >
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2">
+          {isActive && (
+            <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse shrink-0" />
+          )}
+          <p className="font-medium text-sm truncate">{p.name}</p>
+          {isActive && (
+            <Badge variant="success" className="text-[10px] px-1.5 py-0">{t("profiles.connected")}</Badge>
+          )}
+          {/* Latency badge */}
+          {(() => {
+            if (!le) return null;
+            if (le.loading) return <Loader2 size={12} className="animate-spin text-muted-foreground shrink-0" />;
+            if (le.ms == null) return <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400">{t("profiles.latencyError")}</Badge>;
+            const color = le.ms < 100
+              ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400"
+              : le.ms < 300
+              ? "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400"
+              : "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400";
+            return <Badge variant="outline" className={`text-[10px] px-1.5 py-0 border-0 ${color}`}>{le.ms}{t("profiles.ms")}</Badge>;
+          })()}
+        </div>
+        <div className="flex flex-wrap gap-1 mt-0.5">
+          {p.subscription_url && (
+            <Badge variant="outline" className="text-[10px] px-1.5 py-0 gap-0.5">
+              <Globe size={8} /> {t("profiles.subscription")}
+            </Badge>
+          )}
+          {p.tags.length > 0
+            ? p.tags.map((tag) => <Badge key={tag} variant="secondary" className="text-[10px] px-1.5 py-0">{tag}</Badge>)
+            : !p.subscription_url && <span className="text-xs text-muted-foreground">&mdash;</span>
+          }
+          {p.last_updated && (
+            <span className="text-[10px] text-muted-foreground">
+              {t("profiles.lastUpdated", { time: fmtRelativeTime(p.last_updated) })}
+            </span>
+          )}
+        </div>
+        {/* Per-profile metrics */}
+        {pm.connectCount > 0 && (
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-1 text-[10px] text-muted-foreground">
+            {pm.lastLatencyMs != null && <span>{pm.lastLatencyMs}ms</span>}
+            {pm.lastConnectedAt && <span>{fmtRelativeTime(pm.lastConnectedAt)}</span>}
+            {(pm.totalBytesUp > 0 || pm.totalBytesDown > 0) && (
+              <span>&uarr;{fmtBytes(pm.totalBytesUp)} &darr;{fmtBytes(pm.totalBytesDown)}</span>
+            )}
+            {pm.connectCount > 1 && (
+              <span>{pm.connectCount} {t("profiles.sessions")}</span>
+            )}
+            {pm.totalUptimeSecs > 0 && (
+              <span>{fmtDuration(pm.totalUptimeSecs)}</span>
+            )}
+            {pm.peakSpeedDownBps > 0 && (
+              <span>{t("profiles.peak")} &darr;{fmtSpeed(pm.peakSpeedDownBps)}</span>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Action dropdown */}
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            size="icon"
+            variant="ghost"
+            className="ml-2 shrink-0"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <MoreHorizontal size={16} />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+          <DropdownMenuItem onSelect={() => onEdit(p)}>
+            <Pencil size={14} className="mr-2" /> {t("profiles.edit")}
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => onDuplicate(p)}>
+            <Copy size={14} className="mr-2" /> {t("profiles.duplicate")}
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => onShare(p)}>
+            <Share2 size={14} className="mr-2" /> {t("profiles.share")}
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => onDelete(p)} className="text-destructive">
+            <Trash2 size={14} className="mr-2" /> {t("profiles.delete")}
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
+  );
+});
 
 export default function Profiles() {
   const { t } = useTranslation();
@@ -721,108 +855,21 @@ export default function Profiles() {
           {filteredProfiles.length === 0 && (
             <p className="text-sm text-muted-foreground text-center py-8">{t("profiles.noProfilesYet")}</p>
           )}
-          {filteredProfiles.map((p) => {
-            const isActive = connected && activeProfile?.id === p.id;
-            const pm = metrics[p.id] ?? { lastLatencyMs: null, lastConnectedAt: null, totalBytesUp: 0, totalBytesDown: 0, connectCount: 0, totalUptimeSecs: 0, lastSessionSecs: 0, peakSpeedDownBps: 0, peakSpeedUpBps: 0 };
-
-            return (
-              <div
-                key={p.id}
-                onClick={() => handleProfileClick(p)}
-                className={`flex items-center justify-between rounded-lg border bg-card px-4 py-3 cursor-pointer transition-colors hover:bg-accent/50 ${
-                  isActive ? "border-l-4 border-l-green-500 border-green-500/30" : ""
-                }`}
-              >
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    {isActive && (
-                      <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse shrink-0" />
-                    )}
-                    <p className="font-medium text-sm truncate">{p.name}</p>
-                    {isActive && (
-                      <Badge variant="success" className="text-[10px] px-1.5 py-0">{t("profiles.connected")}</Badge>
-                    )}
-                    {/* Latency badge */}
-                    {(() => {
-                      const le = latencyMap[p.id];
-                      if (!le) return null;
-                      if (le.loading) return <Loader2 size={12} className="animate-spin text-muted-foreground shrink-0" />;
-                      if (le.ms == null) return <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400">{t("profiles.latencyError")}</Badge>;
-                      const color = le.ms < 100
-                        ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400"
-                        : le.ms < 300
-                        ? "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400"
-                        : "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400";
-                      return <Badge variant="outline" className={`text-[10px] px-1.5 py-0 border-0 ${color}`}>{le.ms}{t("profiles.ms")}</Badge>;
-                    })()}
-                  </div>
-                  <div className="flex flex-wrap gap-1 mt-0.5">
-                    {p.subscription_url && (
-                      <Badge variant="outline" className="text-[10px] px-1.5 py-0 gap-0.5">
-                        <Globe size={8} /> {t("profiles.subscription")}
-                      </Badge>
-                    )}
-                    {p.tags.length > 0
-                      ? p.tags.map((tag) => <Badge key={tag} variant="secondary" className="text-[10px] px-1.5 py-0">{tag}</Badge>)
-                      : !p.subscription_url && <span className="text-xs text-muted-foreground">&mdash;</span>
-                    }
-                    {p.last_updated && (
-                      <span className="text-[10px] text-muted-foreground">
-                        {t("profiles.lastUpdated", { time: fmtRelativeTime(p.last_updated) })}
-                      </span>
-                    )}
-                  </div>
-                  {/* Per-profile metrics */}
-                  {pm.connectCount > 0 && (
-                    <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-1 text-[10px] text-muted-foreground">
-                      {pm.lastLatencyMs != null && <span>{pm.lastLatencyMs}ms</span>}
-                      {pm.lastConnectedAt && <span>{fmtRelativeTime(pm.lastConnectedAt)}</span>}
-                      {(pm.totalBytesUp > 0 || pm.totalBytesDown > 0) && (
-                        <span>&uarr;{fmtBytes(pm.totalBytesUp)} &darr;{fmtBytes(pm.totalBytesDown)}</span>
-                      )}
-                      {pm.connectCount > 1 && (
-                        <span>{pm.connectCount} {t("profiles.sessions")}</span>
-                      )}
-                      {pm.totalUptimeSecs > 0 && (
-                        <span>{fmtDuration(pm.totalUptimeSecs)}</span>
-                      )}
-                      {pm.peakSpeedDownBps > 0 && (
-                        <span>{t("profiles.peak")} &darr;{fmtSpeed(pm.peakSpeedDownBps)}</span>
-                      )}
-                    </div>
-                  )}
-                </div>
-
-                {/* Action dropdown */}
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      className="ml-2 shrink-0"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <MoreHorizontal size={16} />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
-                    <DropdownMenuItem onSelect={() => openEdit(p)}>
-                      <Pencil size={14} className="mr-2" /> {t("profiles.edit")}
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onSelect={() => openDuplicateDialog(p)}>
-                      <Copy size={14} className="mr-2" /> {t("profiles.duplicate")}
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onSelect={() => openShareDialog(p)}>
-                      <Share2 size={14} className="mr-2" /> {t("profiles.share")}
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onSelect={() => confirmDelete(p)} className="text-destructive">
-                      <Trash2 size={14} className="mr-2" /> {t("profiles.delete")}
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-            );
-          })}
+          {filteredProfiles.map((p) => (
+            <ProfileCard
+              key={p.id}
+              profile={p}
+              pm={metrics[p.id] ?? EMPTY_METRICS}
+              latencyEntry={latencyMap[p.id]}
+              isActive={connected && activeProfile?.id === p.id}
+              onClick={handleProfileClick}
+              onEdit={openEdit}
+              onDuplicate={openDuplicateDialog}
+              onShare={openShareDialog}
+              onDelete={confirmDelete}
+              t={t}
+            />
+          ))}
         </div>
       </ScrollArea>
 
