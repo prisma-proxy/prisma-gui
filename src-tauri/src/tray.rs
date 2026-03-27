@@ -69,7 +69,13 @@ fn build_proxy_mode_submenu(
     mgr: &AppHandle,
     current_mode: u32,
 ) -> tauri::Result<tauri::menu::Submenu<tauri::Wry>> {
-    let check = |flag: u32| if current_mode == flag { "\u{2713} " } else { "  " };
+    let check = |flag: u32| {
+        if current_mode == flag {
+            "\u{2713} "
+        } else {
+            "  "
+        }
+    };
 
     SubmenuBuilder::new(mgr, "Proxy Mode")
         .item(&MenuItem::with_id(
@@ -118,8 +124,13 @@ fn build_speed_stats_submenu(
         false,
         None::<&str>,
     )?;
-    let total_up_item =
-        MenuItem::with_id(mgr, "stat:total-up", format!("Total Up: {total_up}"), false, None::<&str>)?;
+    let total_up_item = MenuItem::with_id(
+        mgr,
+        "stat:total-up",
+        format!("Total Up: {total_up}"),
+        false,
+        None::<&str>,
+    )?;
     let total_down_item = MenuItem::with_id(
         mgr,
         "stat:total-down",
@@ -210,8 +221,7 @@ fn build_profiles_submenu(
     profiles_json: &str,
     active_id: Option<&str>,
 ) -> tauri::Result<tauri::menu::Submenu<tauri::Wry>> {
-    let profiles: Vec<serde_json::Value> =
-        serde_json::from_str(profiles_json).unwrap_or_default();
+    let profiles: Vec<serde_json::Value> = serde_json::from_str(profiles_json).unwrap_or_default();
 
     let mut sub = SubmenuBuilder::new(app, "Profiles");
     if profiles.is_empty() {
@@ -310,12 +320,8 @@ fn build_full_menu(app: &AppHandle) -> tauri::Result<tauri::menu::Menu<tauri::Wr
         &state.connections,
     )?;
     let recent_sub = build_recent_connections_submenu(app, &state.recent_connections)?;
-    let toggles_sub = build_quick_toggles_submenu(
-        app,
-        state.auto_connect,
-        state.allow_lan,
-        state.tun_enabled,
-    )?;
+    let toggles_sub =
+        build_quick_toggles_submenu(app, state.auto_connect, state.allow_lan, state.tun_enabled)?;
 
     // Drop the read guard before building the menu (no longer needed)
     drop(state);
