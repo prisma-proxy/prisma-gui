@@ -21,21 +21,32 @@ unsafe extern "C" fn on_ffi_event(json: *const std::ffi::c_char, _userdata: *mut
                 match parsed["type"].as_str() {
                     Some("status_changed") => {
                         let code = parsed["code"].as_i64().unwrap_or(0) as i32;
-                        tray::update_status(handle, code);
+                        let h = handle.clone();
+                        let _ = handle.run_on_main_thread(move || {
+                            tray::update_status(&h, code);
+                        });
                     }
                     Some("stats") => {
-                        tray::update_tooltip(
-                            handle,
-                            &tray::TrayStatsUpdate {
-                                up_bps: parsed["speed_up_bps"].as_f64().unwrap_or(0.0),
-                                down_bps: parsed["speed_down_bps"].as_f64().unwrap_or(0.0),
-                                bytes_up: parsed["bytes_up"].as_f64().unwrap_or(0.0),
-                                bytes_down: parsed["bytes_down"].as_f64().unwrap_or(0.0),
-                                connections: 0,
-                                profile_name: "",
-                                uptime_secs: parsed["uptime_secs"].as_u64().unwrap_or(0),
-                            },
-                        );
+                        let h = handle.clone();
+                        let up_bps = parsed["speed_up_bps"].as_f64().unwrap_or(0.0);
+                        let down_bps = parsed["speed_down_bps"].as_f64().unwrap_or(0.0);
+                        let bytes_up = parsed["bytes_up"].as_f64().unwrap_or(0.0);
+                        let bytes_down = parsed["bytes_down"].as_f64().unwrap_or(0.0);
+                        let uptime_secs = parsed["uptime_secs"].as_u64().unwrap_or(0);
+                        let _ = handle.run_on_main_thread(move || {
+                            tray::update_tooltip(
+                                &h,
+                                &tray::TrayStatsUpdate {
+                                    up_bps,
+                                    down_bps,
+                                    bytes_up,
+                                    bytes_down,
+                                    connections: 0,
+                                    profile_name: "",
+                                    uptime_secs,
+                                },
+                            );
+                        });
                     }
                     _ => {}
                 }

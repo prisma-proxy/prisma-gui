@@ -257,11 +257,13 @@ pub fn quit_app(app: tauri::AppHandle) {
 
 #[tauri::command]
 pub fn set_tray_proxy_mode(app: tauri::AppHandle, mode: u32) {
-    if let Ok(mut guard) = crate::state::PROXY_MODE.lock() {
-        *guard = mode;
-    }
     #[cfg(desktop)]
-    let _ = crate::tray::refresh_profiles(&app);
+    {
+        if let Ok(mut guard) = crate::state::TRAY_STATE.write() {
+            guard.proxy_mode = mode;
+        }
+        let _ = crate::tray::refresh_profiles(&app);
+    }
     let _ = &app;
 }
 
@@ -269,8 +271,9 @@ pub fn set_tray_proxy_mode(app: tauri::AppHandle, mode: u32) {
 
 #[tauri::command]
 pub fn set_active_profile_id(id: String) {
-    if let Ok(mut guard) = crate::state::ACTIVE_PROFILE_ID.lock() {
-        *guard = if id.is_empty() { None } else { Some(id) };
+    #[cfg(desktop)]
+    if let Ok(mut guard) = crate::state::TRAY_STATE.write() {
+        guard.active_profile_id = if id.is_empty() { None } else { Some(id) };
     }
 }
 
@@ -283,16 +286,33 @@ pub fn set_tray_port(port: u16) {
 
 #[tauri::command]
 pub fn get_active_profile_id() -> Option<String> {
-    crate::state::ACTIVE_PROFILE_ID.lock().ok()?.clone()
+    #[cfg(desktop)]
+    {
+        crate::state::TRAY_STATE
+            .read()
+            .ok()
+            .and_then(|g| g.active_profile_id.clone())
+    }
+    #[cfg(not(desktop))]
+    {
+        None
+    }
 }
 
 #[tauri::command]
 pub fn get_proxy_mode() -> u32 {
-    crate::state::PROXY_MODE
-        .lock()
-        .ok()
-        .map(|g| *g)
-        .unwrap_or(0x02)
+    #[cfg(desktop)]
+    {
+        crate::state::TRAY_STATE
+            .read()
+            .ok()
+            .map(|g| g.proxy_mode)
+            .unwrap_or(0x02)
+    }
+    #[cfg(not(desktop))]
+    {
+        0x02
+    }
 }
 
 /// Update tray speed stats and tooltip with live bandwidth data.
@@ -342,17 +362,15 @@ pub fn sync_tray_toggles(
     allow_lan: bool,
     tun_enabled: bool,
 ) {
-    if let Ok(mut g) = crate::state::TOGGLE_AUTO_CONNECT.lock() {
-        *g = auto_connect;
-    }
-    if let Ok(mut g) = crate::state::TOGGLE_ALLOW_LAN.lock() {
-        *g = allow_lan;
-    }
-    if let Ok(mut g) = crate::state::TOGGLE_TUN.lock() {
-        *g = tun_enabled;
-    }
     #[cfg(desktop)]
-    let _ = crate::tray::refresh_profiles(&app);
+    {
+        if let Ok(mut guard) = crate::state::TRAY_STATE.write() {
+            guard.auto_connect = auto_connect;
+            guard.allow_lan = allow_lan;
+            guard.tun_enabled = tun_enabled;
+        }
+        let _ = crate::tray::refresh_profiles(&app);
+    }
     let _ = &app;
 }
 

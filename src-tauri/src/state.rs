@@ -1,5 +1,6 @@
 use std::sync::Mutex;
 use std::sync::OnceLock;
+use std::sync::RwLock;
 
 pub struct AppState {
     /// PrismaClient* stored as usize for Send-safety across threads.
@@ -9,45 +10,77 @@ pub struct AppState {
 /// Global Tauri app handle — set once in setup, read in FFI callback.
 pub static APP_HANDLE: OnceLock<tauri::AppHandle> = OnceLock::new();
 
-/// The tray "Connect/Disconnect" menu item — stored so update_status can toggle its label.
-/// Uses Mutex (not OnceLock) because refresh_profiles recreates the menu item.
-#[cfg(desktop)]
-pub static TRAY_CONNECT_ITEM: Mutex<Option<tauri::menu::MenuItem<tauri::Wry>>> = Mutex::new(None);
-
-/// Active profile ID for tray bullet prefix.
-pub static ACTIVE_PROFILE_ID: Mutex<Option<String>> = Mutex::new(None);
-
 /// SOCKS5 port for "Copy Proxy Address" tray menu item.
 pub static SOCKS5_PORT: Mutex<u16> = Mutex::new(0);
 
-/// Current proxy mode for tray checkmark display (default: MODE_SYSTEM_PROXY = 0x02).
-pub static PROXY_MODE: Mutex<u32> = Mutex::new(0x02);
+// ── Consolidated tray state ─────────────────────────────────────────────────
 
-// ── Speed Stats items (display-only, updated from bandwidth callback) ────────
-
+/// All tray-related mutable state in a single struct, protected by one RwLock.
+/// This eliminates the lock contention between the FFI stats callback (every 3s)
+/// and the UI-thread tray menu click handler that previously competed for 10+
+/// individual mutexes.
 #[cfg(desktop)]
-pub static TRAY_STAT_UPLOAD: Mutex<Option<tauri::menu::MenuItem<tauri::Wry>>> = Mutex::new(None);
-#[cfg(desktop)]
-pub static TRAY_STAT_DOWNLOAD: Mutex<Option<tauri::menu::MenuItem<tauri::Wry>>> = Mutex::new(None);
-#[cfg(desktop)]
-pub static TRAY_STAT_TOTAL_UP: Mutex<Option<tauri::menu::MenuItem<tauri::Wry>>> = Mutex::new(None);
-#[cfg(desktop)]
-pub static TRAY_STAT_TOTAL_DOWN: Mutex<Option<tauri::menu::MenuItem<tauri::Wry>>> =
-    Mutex::new(None);
-#[cfg(desktop)]
-pub static TRAY_STAT_CONNECTIONS: Mutex<Option<tauri::menu::MenuItem<tauri::Wry>>> =
-    Mutex::new(None);
-
-// ── Quick Toggle initial states (synced from frontend) ───────────────────────
-
-#[cfg(desktop)]
-pub static TOGGLE_AUTO_CONNECT: Mutex<bool> = Mutex::new(false);
-#[cfg(desktop)]
-pub static TOGGLE_ALLOW_LAN: Mutex<bool> = Mutex::new(false);
-#[cfg(desktop)]
-pub static TOGGLE_TUN: Mutex<bool> = Mutex::new(false);
-
-// ── Recent Connections (last 5 destinations) ─────────────────────────────────
+pub struct TrayState {
+    pub connect_label: String,
+    pub speed_up: String,
+    pub speed_down: String,
+    pub total_up: String,
+    pub total_down: String,
+    pub connections: String,
+    pub auto_connect: bool,
+    pub allow_lan: bool,
+    pub tun_enabled: bool,
+    pub proxy_mode: u32,
+    pub active_profile_id: Option<String>,
+    pub recent_connections: Vec<String>,
+    pub profiles_json: String,
+}
 
 #[cfg(desktop)]
-pub static RECENT_CONNECTIONS: Mutex<Vec<String>> = Mutex::new(Vec::new());
+impl Default for TrayState {
+    fn default() -> Self {
+        Self {
+            connect_label: "Connect".to_string(),
+            speed_up: "\u{2191} 0 B/s".to_string(),
+            speed_down: "\u{2193} 0 B/s".to_string(),
+            total_up: "0 B".to_string(),
+            total_down: "0 B".to_string(),
+            connections: "0 connections".to_string(),
+            auto_connect: false,
+            allow_lan: false,
+            tun_enabled: false,
+            proxy_mode: 0x02,
+            active_profile_id: None,
+            recent_connections: Vec::new(),
+            profiles_json: "[]".to_string(),
+        }
+    }
+}
+
+#[cfg(desktop)]
+pub static TRAY_STATE: RwLock<TrayState> = RwLock::new(TrayState {
+    connect_label: String::new(),
+    speed_up: String::new(),
+    speed_down: String::new(),
+    total_up: String::new(),
+    total_down: String::new(),
+    connections: String::new(),
+    auto_connect: false,
+    allow_lan: false,
+    tun_enabled: false,
+    proxy_mode: 0x02,
+    active_profile_id: None,
+    recent_connections: Vec::new(),
+    profiles_json: String::new(),
+});
+
+/// Initialize TRAY_STATE with proper default strings.
+/// Must be called once at startup before the tray is built.
+#[cfg(desktop)]
+pub fn init_tray_state() {
+    if let Ok(mut s) = TRAY_STATE.write() {
+        if s.connect_label.is_empty() {
+            *s = TrayState::default();
+        }
+    }
+}

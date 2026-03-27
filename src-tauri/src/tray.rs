@@ -62,16 +62,14 @@ fn fmt_uptime(secs: u64) -> String {
 }
 
 // ── Submenu builders ────────────────────────────────────────────────────────
+// All submenu builders read from TRAY_STATE (already locked by the caller via
+// a read-guard snapshot) so they never acquire individual mutexes.
 
-fn build_proxy_mode_submenu<M: tauri::Manager<tauri::Wry>>(
-    mgr: &M,
+fn build_proxy_mode_submenu(
+    mgr: &AppHandle,
+    current_mode: u32,
 ) -> tauri::Result<tauri::menu::Submenu<tauri::Wry>> {
-    let current = crate::state::PROXY_MODE
-        .lock()
-        .ok()
-        .map(|g| *g)
-        .unwrap_or(0x02);
-    let check = |flag: u32| if current == flag { "\u{2713} " } else { "  " };
+    let check = |flag: u32| if current_mode == flag { "\u{2713} " } else { "  " };
 
     SubmenuBuilder::new(mgr, "Proxy Mode")
         .item(&MenuItem::with_id(
@@ -98,85 +96,61 @@ fn build_proxy_mode_submenu<M: tauri::Manager<tauri::Wry>>(
         .build()
 }
 
-fn build_speed_stats_submenu<M: tauri::Manager<tauri::Wry>>(
-    mgr: &M,
+fn build_speed_stats_submenu(
+    mgr: &AppHandle,
+    speed_up: &str,
+    speed_down: &str,
+    total_up: &str,
+    total_down: &str,
+    connections: &str,
 ) -> tauri::Result<tauri::menu::Submenu<tauri::Wry>> {
     let upload = MenuItem::with_id(
         mgr,
         "stat:upload",
-        "\u{2191} Upload: 0 B/s",
+        format!("\u{2191} Upload: {speed_up}"),
         false,
         None::<&str>,
     )?;
     let download = MenuItem::with_id(
         mgr,
         "stat:download",
-        "\u{2193} Download: 0 B/s",
+        format!("\u{2193} Download: {speed_down}"),
         false,
         None::<&str>,
     )?;
-    let total_up = MenuItem::with_id(mgr, "stat:total-up", "Total Up: 0 B", false, None::<&str>)?;
-    let total_down = MenuItem::with_id(
+    let total_up_item =
+        MenuItem::with_id(mgr, "stat:total-up", format!("Total Up: {total_up}"), false, None::<&str>)?;
+    let total_down_item = MenuItem::with_id(
         mgr,
         "stat:total-down",
-        "Total Down: 0 B",
+        format!("Total Down: {total_down}"),
         false,
         None::<&str>,
     )?;
-    let connections = MenuItem::with_id(
+    let connections_item = MenuItem::with_id(
         mgr,
         "stat:connections",
-        "Connections: 0",
+        format!("Connections: {connections}"),
         false,
         None::<&str>,
     )?;
-
-    // Store references for live updates
-    if let Ok(mut g) = crate::state::TRAY_STAT_UPLOAD.lock() {
-        *g = Some(upload.clone());
-    }
-    if let Ok(mut g) = crate::state::TRAY_STAT_DOWNLOAD.lock() {
-        *g = Some(download.clone());
-    }
-    if let Ok(mut g) = crate::state::TRAY_STAT_TOTAL_UP.lock() {
-        *g = Some(total_up.clone());
-    }
-    if let Ok(mut g) = crate::state::TRAY_STAT_TOTAL_DOWN.lock() {
-        *g = Some(total_down.clone());
-    }
-    if let Ok(mut g) = crate::state::TRAY_STAT_CONNECTIONS.lock() {
-        *g = Some(connections.clone());
-    }
 
     SubmenuBuilder::new(mgr, "Speed Stats")
         .item(&upload)
         .item(&download)
         .separator()
-        .item(&total_up)
-        .item(&total_down)
-        .item(&connections)
+        .item(&total_up_item)
+        .item(&total_down_item)
+        .item(&connections_item)
         .build()
 }
 
-fn build_quick_toggles_submenu<M: tauri::Manager<tauri::Wry>>(
-    mgr: &M,
+fn build_quick_toggles_submenu(
+    mgr: &AppHandle,
+    auto_connect: bool,
+    allow_lan: bool,
+    tun_enabled: bool,
 ) -> tauri::Result<tauri::menu::Submenu<tauri::Wry>> {
-    let auto_connect = crate::state::TOGGLE_AUTO_CONNECT
-        .lock()
-        .ok()
-        .map(|g| *g)
-        .unwrap_or(false);
-    let allow_lan = crate::state::TOGGLE_ALLOW_LAN
-        .lock()
-        .ok()
-        .map(|g| *g)
-        .unwrap_or(false);
-    let tun = crate::state::TOGGLE_TUN
-        .lock()
-        .ok()
-        .map(|g| *g)
-        .unwrap_or(false);
-
     let check = |v: bool| if v { "\u{2713} " } else { "  " };
 
     SubmenuBuilder::new(mgr, "Quick Toggles")
@@ -197,22 +171,17 @@ fn build_quick_toggles_submenu<M: tauri::Manager<tauri::Wry>>(
         .item(&MenuItem::with_id(
             mgr,
             "toggle:tunEnabled",
-            format!("{}TUN mode", check(tun)),
+            format!("{}TUN mode", check(tun_enabled)),
             true,
             None::<&str>,
         )?)
         .build()
 }
 
-fn build_recent_connections_submenu<M: tauri::Manager<tauri::Wry>>(
-    mgr: &M,
+fn build_recent_connections_submenu(
+    mgr: &AppHandle,
+    recent: &[String],
 ) -> tauri::Result<tauri::menu::Submenu<tauri::Wry>> {
-    let recent = crate::state::RECENT_CONNECTIONS
-        .lock()
-        .ok()
-        .map(|g| g.clone())
-        .unwrap_or_default();
-
     let mut sub = SubmenuBuilder::new(mgr, "Recent Connections");
     if recent.is_empty() {
         sub = sub.item(&MenuItem::with_id(
@@ -236,19 +205,64 @@ fn build_recent_connections_submenu<M: tauri::Manager<tauri::Wry>>(
     sub.build()
 }
 
+fn build_profiles_submenu(
+    app: &AppHandle,
+    profiles_json: &str,
+    active_id: Option<&str>,
+) -> tauri::Result<tauri::menu::Submenu<tauri::Wry>> {
+    let profiles: Vec<serde_json::Value> =
+        serde_json::from_str(profiles_json).unwrap_or_default();
+
+    let mut sub = SubmenuBuilder::new(app, "Profiles");
+    if profiles.is_empty() {
+        sub = sub.item(&MenuItem::with_id(
+            app,
+            "profile:none",
+            "(no profiles)",
+            false,
+            None::<&str>,
+        )?);
+    } else {
+        for p in &profiles {
+            if let (Some(id), Some(name)) = (p["id"].as_str(), p["name"].as_str()) {
+                let is_active = active_id == Some(id);
+                let label = if is_active {
+                    format!("\u{25CF} {name}")
+                } else {
+                    format!("  {name}")
+                };
+                sub = sub.item(&MenuItem::with_id(
+                    app,
+                    format!("profile:{id}"),
+                    label,
+                    true,
+                    None::<&str>,
+                )?);
+            }
+        }
+    }
+    sub.build()
+}
+
 // ── Build the full menu ─────────────────────────────────────────────────────
+// Takes a single TRAY_STATE.read() snapshot and builds every submenu from it.
+// No individual mutex locks are acquired.
 
 fn build_full_menu(app: &AppHandle) -> tauri::Result<tauri::menu::Menu<tauri::Wry>> {
-    let connect_label = crate::state::TRAY_CONNECT_ITEM
-        .lock()
-        .ok()
-        .and_then(|guard| guard.as_ref().and_then(|item| item.text().ok()))
-        .unwrap_or_else(|| "Connect".to_string());
+    // Take a read snapshot of all tray state at once.
+    // If the RwLock is poisoned, recover the guard so the menu still renders.
+    let state = crate::state::TRAY_STATE.read().unwrap_or_else(|poisoned| {
+        tracing::warn!("TRAY_STATE RwLock poisoned, recovering");
+        poisoned.into_inner()
+    });
 
-    let connect = MenuItem::with_id(app, "tray-connect", connect_label, true, None::<&str>)?;
-    if let Ok(mut guard) = crate::state::TRAY_CONNECT_ITEM.lock() {
-        *guard = Some(connect.clone());
-    }
+    let connect = MenuItem::with_id(
+        app,
+        "tray-connect",
+        &state.connect_label,
+        true,
+        None::<&str>,
+    )?;
 
     let show = MenuItem::with_id(app, "tray-show", "Show Window", true, None::<&str>)?;
     let quit = MenuItem::with_id(app, "tray-quit", "Quit Prisma", true, None::<&str>)?;
@@ -281,11 +295,30 @@ fn build_full_menu(app: &AppHandle) -> tauri::Result<tauri::menu::Menu<tauri::Wr
         None::<&str>,
     )?;
 
-    let mode_sub = build_proxy_mode_submenu(app)?;
-    let profiles_sub = build_profiles_submenu(app)?;
-    let stats_sub = build_speed_stats_submenu(app)?;
-    let recent_sub = build_recent_connections_submenu(app)?;
-    let toggles_sub = build_quick_toggles_submenu(app)?;
+    let mode_sub = build_proxy_mode_submenu(app, state.proxy_mode)?;
+    let profiles_sub = build_profiles_submenu(
+        app,
+        &state.profiles_json,
+        state.active_profile_id.as_deref(),
+    )?;
+    let stats_sub = build_speed_stats_submenu(
+        app,
+        &state.speed_up,
+        &state.speed_down,
+        &state.total_up,
+        &state.total_down,
+        &state.connections,
+    )?;
+    let recent_sub = build_recent_connections_submenu(app, &state.recent_connections)?;
+    let toggles_sub = build_quick_toggles_submenu(
+        app,
+        state.auto_connect,
+        state.allow_lan,
+        state.tun_enabled,
+    )?;
+
+    // Drop the read guard before building the menu (no longer needed)
+    drop(state);
 
     MenuBuilder::new(app)
         .item(&connect)
@@ -309,53 +342,15 @@ fn build_full_menu(app: &AppHandle) -> tauri::Result<tauri::menu::Menu<tauri::Wr
         .build()
 }
 
-fn build_profiles_submenu(app: &AppHandle) -> tauri::Result<tauri::menu::Submenu<tauri::Wry>> {
-    let ptr = prisma_ffi::prisma_profiles_list_json();
-    let profiles: Vec<serde_json::Value> = if ptr.is_null() {
-        Vec::new()
-    } else {
-        let s = unsafe {
-            let s = std::ffi::CStr::from_ptr(ptr).to_string_lossy().to_string();
-            prisma_ffi::prisma_free_string(ptr as *mut _);
-            s
-        };
-        serde_json::from_str(&s).unwrap_or_default()
-    };
-
-    let active_id = crate::state::ACTIVE_PROFILE_ID
-        .lock()
-        .ok()
-        .and_then(|guard| guard.clone());
-
-    let mut sub = SubmenuBuilder::new(app, "Profiles");
-    if profiles.is_empty() {
-        sub = sub.item(&MenuItem::with_id(
-            app,
-            "profile:none",
-            "(no profiles)",
-            false,
-            None::<&str>,
-        )?);
-    } else {
-        for p in &profiles {
-            if let (Some(id), Some(name)) = (p["id"].as_str(), p["name"].as_str()) {
-                let is_active = active_id.as_deref() == Some(id);
-                let label = if is_active {
-                    format!("\u{25CF} {name}")
-                } else {
-                    format!("  {name}")
-                };
-                sub = sub.item(&MenuItem::with_id(
-                    app,
-                    format!("profile:{id}"),
-                    label,
-                    true,
-                    None::<&str>,
-                )?);
+/// Helper: rebuild the tray menu from current TRAY_STATE. Used after state mutations.
+fn rebuild_menu(app: &AppHandle) {
+    if let Ok(menu) = build_full_menu(app) {
+        if let Some(tray) = app.tray_by_id("prisma-tray") {
+            if let Err(e) = tray.set_menu(Some(menu)) {
+                tracing::warn!("Failed to set tray menu: {}", e);
             }
         }
     }
-    sub.build()
 }
 
 // ── Handle menu events ──────────────────────────────────────────────────────
@@ -424,33 +419,28 @@ fn handle_menu_event(app: &AppHandle, event: tauri::menu::MenuEvent) {
         }
         id if id.starts_with("toggle:") => {
             let key = id["toggle:".len()..].to_owned();
-            // Flip the current value
-            let new_value = match key.as_str() {
-                "autoConnect" => {
-                    let mut g = match crate::state::TOGGLE_AUTO_CONNECT.lock() {
-                        Ok(g) => g,
-                        Err(_) => return,
-                    };
-                    *g = !*g;
-                    *g
+            // Flip the current value under write lock, then drop before rebuilding
+            let new_value = {
+                let mut guard = match crate::state::TRAY_STATE.write() {
+                    Ok(g) => g,
+                    Err(_) => return,
+                };
+                match key.as_str() {
+                    "autoConnect" => {
+                        guard.auto_connect = !guard.auto_connect;
+                        guard.auto_connect
+                    }
+                    "allowLan" => {
+                        guard.allow_lan = !guard.allow_lan;
+                        guard.allow_lan
+                    }
+                    "tunEnabled" => {
+                        guard.tun_enabled = !guard.tun_enabled;
+                        guard.tun_enabled
+                    }
+                    _ => return,
                 }
-                "allowLan" => {
-                    let mut g = match crate::state::TOGGLE_ALLOW_LAN.lock() {
-                        Ok(g) => g,
-                        Err(_) => return,
-                    };
-                    *g = !*g;
-                    *g
-                }
-                "tunEnabled" => {
-                    let mut g = match crate::state::TOGGLE_TUN.lock() {
-                        Ok(g) => g,
-                        Err(_) => return,
-                    };
-                    *g = !*g;
-                    *g
-                }
-                _ => return,
+                // guard is dropped here at end of block
             };
             if let Err(e) = app.emit(
                 "tray://toggle-setting",
@@ -458,14 +448,8 @@ fn handle_menu_event(app: &AppHandle, event: tauri::menu::MenuEvent) {
             ) {
                 tracing::warn!("Failed to emit tray event: {}", e);
             }
-            // Rebuild menu to update checkmarks
-            if let Ok(menu) = build_full_menu(app) {
-                if let Some(tray) = app.tray_by_id("prisma-tray") {
-                    if let Err(e) = tray.set_menu(Some(menu)) {
-                        tracing::warn!("Failed to set tray menu: {}", e);
-                    }
-                }
-            }
+            // Rebuild menu after lock is released to update checkmarks
+            rebuild_menu(app);
         }
         _ => {}
     }
@@ -474,6 +458,24 @@ fn handle_menu_event(app: &AppHandle, event: tauri::menu::MenuEvent) {
 // ── Public API ──────────────────────────────────────────────────────────────
 
 pub fn setup(app: &App) -> tauri::Result<()> {
+    // Initialize default strings in TRAY_STATE
+    crate::state::init_tray_state();
+
+    // Populate cached profiles_json from FFI so first menu build has data
+    {
+        let ptr = prisma_ffi::prisma_profiles_list_json();
+        if !ptr.is_null() {
+            let json = unsafe {
+                let s = std::ffi::CStr::from_ptr(ptr).to_string_lossy().to_string();
+                prisma_ffi::prisma_free_string(ptr as *mut _);
+                s
+            };
+            if let Ok(mut guard) = crate::state::TRAY_STATE.write() {
+                guard.profiles_json = json;
+            }
+        }
+    }
+
     let handle = app.handle();
     let menu = build_full_menu(handle)?;
 
@@ -487,6 +489,9 @@ pub fn setup(app: &App) -> tauri::Result<()> {
     Ok(())
 }
 
+/// Update the tray icon and connect/disconnect label based on connection status.
+/// If the status changed (connected vs disconnected), the menu is rebuilt to reflect
+/// the new connect label. Uses try_write to avoid blocking the UI thread.
 pub fn update_status(handle: &AppHandle, status: i32) {
     tracing::info!(status, "Tray status update");
     let icon = match status {
@@ -501,22 +506,34 @@ pub fn update_status(handle: &AppHandle, status: i32) {
         }
     }
 
-    if let Ok(guard) = crate::state::TRAY_CONNECT_ITEM.lock() {
-        if let Some(item) = guard.as_ref() {
-            let label = if status == 2 { "Disconnect" } else { "Connect" };
-            if let Err(e) = item.set_text(label) {
-                tracing::warn!("Failed to set tray item text: {}", e);
-            }
+    // Update the connect_label in TRAY_STATE and detect if it actually changed
+    let label_changed = {
+        if let Ok(mut guard) = crate::state::TRAY_STATE.write() {
+            let new_label = if status == 2 {
+                "Disconnect".to_string()
+            } else {
+                "Connect".to_string()
+            };
+            let changed = guard.connect_label != new_label;
+            guard.connect_label = new_label;
+            changed
+        } else {
+            false
         }
-    }
+    };
 
-    // When disconnecting, reset tooltip to simple form
+    // Update tooltip
     if status == 0 {
         if let Some(tray) = handle.tray_by_id("prisma-tray") {
             if let Err(e) = tray.set_tooltip(Some("Prisma \u{2014} Disconnected")) {
                 tracing::warn!("Failed to set tray tooltip: {}", e);
             }
         }
+    }
+
+    // If the label changed, rebuild menu to show Connect vs Disconnect
+    if label_changed {
+        rebuild_menu(handle);
     }
 }
 
@@ -531,23 +548,41 @@ pub struct TrayStatsUpdate<'a> {
     pub uptime_secs: u64,
 }
 
-/// Update the tray tooltip with rich connection info (Item 5) and update
-/// the Speed Stats submenu items (Item 1).
+/// Update the tray tooltip with rich connection info and cache stats strings
+/// in TRAY_STATE. Uses try_write so that if the lock is contended (e.g. the
+/// menu is being rebuilt on the UI thread), we skip this tick -- the next stats
+/// callback (3s later) will catch up.
 pub fn update_tooltip(handle: &AppHandle, stats: &TrayStatsUpdate<'_>) {
-    // Enhanced tooltip (Item 5)
+    // Format the display strings
+    let speed_up = fmt_speed(stats.up_bps);
+    let speed_down = fmt_speed(stats.down_bps);
+    let total_up = fmt_bytes(stats.bytes_up);
+    let total_down = fmt_bytes(stats.bytes_down);
+    let connections = format!("{}", stats.connections);
+
+    // try_write: if contended, skip this update -- next tick catches up
+    if let Ok(mut guard) = crate::state::TRAY_STATE.try_write() {
+        guard.speed_up = speed_up.clone();
+        guard.speed_down = speed_down.clone();
+        guard.total_up = total_up.clone();
+        guard.total_down = total_down.clone();
+        guard.connections = connections.clone();
+        // guard dropped here
+    }
+
+    // Enhanced tooltip (hover text on the tray icon)
     let tooltip = if stats.profile_name.is_empty() {
         format!(
             "Prisma \u{2014} Connected\n\u{2191} {} \u{2193} {}",
-            fmt_speed(stats.up_bps),
-            fmt_speed(stats.down_bps),
+            speed_up, speed_down,
         )
     } else {
         format!(
             "Prisma \u{2014} Connected\nProfile: {}\nUptime: {}\n\u{2191} {} \u{2193} {}",
             stats.profile_name,
             fmt_uptime(stats.uptime_secs),
-            fmt_speed(stats.up_bps),
-            fmt_speed(stats.down_bps),
+            speed_up,
+            speed_down,
         )
     };
     if let Some(tray) = handle.tray_by_id("prisma-tray") {
@@ -555,49 +590,22 @@ pub fn update_tooltip(handle: &AppHandle, stats: &TrayStatsUpdate<'_>) {
             tracing::warn!("Failed to set tray tooltip: {}", e);
         }
     }
-
-    // Update Speed Stats submenu items (Item 1)
-    if let Ok(g) = crate::state::TRAY_STAT_UPLOAD.lock() {
-        if let Some(item) = g.as_ref() {
-            if let Err(e) = item.set_text(format!("\u{2191} Upload: {}", fmt_speed(stats.up_bps))) {
-                tracing::warn!("Failed to set tray stat text: {}", e);
-            }
-        }
-    }
-    if let Ok(g) = crate::state::TRAY_STAT_DOWNLOAD.lock() {
-        if let Some(item) = g.as_ref() {
-            if let Err(e) =
-                item.set_text(format!("\u{2193} Download: {}", fmt_speed(stats.down_bps)))
-            {
-                tracing::warn!("Failed to set tray stat text: {}", e);
-            }
-        }
-    }
-    if let Ok(g) = crate::state::TRAY_STAT_TOTAL_UP.lock() {
-        if let Some(item) = g.as_ref() {
-            if let Err(e) = item.set_text(format!("Total Up: {}", fmt_bytes(stats.bytes_up))) {
-                tracing::warn!("Failed to set tray stat text: {}", e);
-            }
-        }
-    }
-    if let Ok(g) = crate::state::TRAY_STAT_TOTAL_DOWN.lock() {
-        if let Some(item) = g.as_ref() {
-            if let Err(e) = item.set_text(format!("Total Down: {}", fmt_bytes(stats.bytes_down))) {
-                tracing::warn!("Failed to set tray stat text: {}", e);
-            }
-        }
-    }
-    if let Ok(g) = crate::state::TRAY_STAT_CONNECTIONS.lock() {
-        if let Some(item) = g.as_ref() {
-            if let Err(e) = item.set_text(format!("Connections: {}", stats.connections)) {
-                tracing::warn!("Failed to set tray stat text: {}", e);
-            }
-        }
-    }
 }
 
 /// Rebuild the full tray menu (used when profiles, toggles, or recent connections change).
 pub fn refresh_profiles(app: &AppHandle) -> tauri::Result<()> {
+    // Re-fetch profiles from FFI and cache them
+    let ptr = prisma_ffi::prisma_profiles_list_json();
+    if !ptr.is_null() {
+        let json = unsafe {
+            let s = std::ffi::CStr::from_ptr(ptr).to_string_lossy().to_string();
+            prisma_ffi::prisma_free_string(ptr as *mut _);
+            s
+        };
+        if let Ok(mut guard) = crate::state::TRAY_STATE.write() {
+            guard.profiles_json = json;
+        }
+    }
     let menu = build_full_menu(app)?;
     if let Some(tray) = app.tray_by_id("prisma-tray") {
         tray.set_menu(Some(menu))?;
@@ -607,9 +615,9 @@ pub fn refresh_profiles(app: &AppHandle) -> tauri::Result<()> {
 
 /// Rebuild the Recent Connections submenu with the given destinations.
 pub fn refresh_recent_connections(app: &AppHandle, destinations: Vec<String>) -> tauri::Result<()> {
-    // Update global state
-    if let Ok(mut g) = crate::state::RECENT_CONNECTIONS.lock() {
-        *g = destinations;
+    // Update TRAY_STATE with new recent connections
+    if let Ok(mut guard) = crate::state::TRAY_STATE.write() {
+        guard.recent_connections = destinations;
     }
     // Rebuild full menu to pick up the new recent connections
     let menu = build_full_menu(app)?;
