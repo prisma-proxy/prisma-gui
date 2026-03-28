@@ -309,6 +309,7 @@ pub fn restart_app(app: tauri::AppHandle) {
 }
 
 #[tauri::command]
+#[allow(unused_variables)]
 pub fn set_tray_proxy_mode(app: tauri::AppHandle, mode: u32) {
     #[cfg(desktop)]
     {
@@ -323,6 +324,7 @@ pub fn set_tray_proxy_mode(app: tauri::AppHandle, mode: u32) {
 // ── tray state ────────────────────────────────────────────────────────────────
 
 #[tauri::command]
+#[allow(unused_variables)]
 pub fn set_active_profile_id(id: String) {
     #[cfg(desktop)]
     if let Ok(mut guard) = crate::state::TRAY_STATE.write() {
@@ -369,7 +371,7 @@ pub fn get_proxy_mode() -> u32 {
 }
 
 /// Update tray speed stats and tooltip with live bandwidth data.
-#[allow(clippy::too_many_arguments)]
+#[allow(clippy::too_many_arguments, unused_variables)]
 #[tauri::command]
 pub fn update_tray_stats(
     app: tauri::AppHandle,
@@ -399,6 +401,7 @@ pub fn update_tray_stats(
 
 /// Update the Recent Connections submenu with the last N destinations.
 #[tauri::command]
+#[allow(unused_variables)]
 pub fn update_tray_recent(app: tauri::AppHandle, destinations: Vec<String>) -> Result<(), String> {
     #[cfg(desktop)]
     crate::tray::refresh_recent_connections(&app, destinations).map_err(|e| e.to_string())?;
@@ -409,6 +412,7 @@ pub fn update_tray_recent(app: tauri::AppHandle, destinations: Vec<String>) -> R
 /// Sync toggle states from the frontend settings store into tray state.
 /// Called once at startup so the tray checkmarks match the persisted settings.
 #[tauri::command]
+#[allow(unused_variables)]
 pub fn sync_tray_toggles(
     app: tauri::AppHandle,
     auto_connect: bool,

@@ -1,5 +1,6 @@
 use std::sync::Mutex;
 use std::sync::OnceLock;
+#[cfg(desktop)]
 use std::sync::RwLock;
 
 pub struct AppState {
