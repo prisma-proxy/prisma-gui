@@ -19,21 +19,29 @@ export function useConnection() {
   const setProxyModes = useSettings((s) => s.setProxyModes);
 
   const connectTo = useCallback(async (profile: Profile, modes: number): Promise<boolean> => {
+    console.log(`[connect] modes=0x${modes.toString(16)}, isMobile=${isMobileSync()}, connectionMode=${useSettings.getState().connectionMode}`);
     // TUN mode requires platform-specific preparation
     if ((modes & MODE_TUN) !== 0) {
+      console.log("[connect] TUN mode requested, starting VPN flow...");
       if (isMobileSync()) {
         // Mobile VPN flow: check permission → start VPN service → connect
         try {
+          console.log("[connect] checking VPN permission...");
           const hasPermission = await api.checkVpnPermission();
+          console.log(`[connect] VPN permission: ${hasPermission}`);
           if (!hasPermission) {
             const granted = await api.requestVpnPermission();
+            console.log(`[connect] VPN permission requested: ${granted}`);
             if (!granted) {
               notify.warning("VPN permission is required. Please grant it in system settings.");
               return false;
             }
           }
+          console.log("[connect] starting VPN service...");
           await startMobileVpnIfNeeded(modes);
+          console.log("[connect] VPN service started");
         } catch (e) {
+          console.error("[connect] VPN error:", e);
           notify.error(`VPN service error: ${String(e)}`);
           return false;
         }

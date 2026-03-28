@@ -5,13 +5,18 @@ import { MODE_SOCKS5, MODE_TUN } from "@/lib/types";
 
 /** Derive the effective proxy modes based on platform and connection mode. */
 export function getEffectiveModes(): number {
-  if (isMobileSync()) {
+  const mobile = isMobileSync();
+  if (mobile) {
     const settings = useSettings.getState();
-    return settings.connectionMode === "vpn"
+    const modes = settings.connectionMode === "vpn"
       ? MODE_SOCKS5 | MODE_TUN
       : MODE_SOCKS5;
+    console.log(`[getEffectiveModes] mobile=true, connectionMode=${settings.connectionMode}, modes=0x${modes.toString(16)}`);
+    return modes;
   }
-  return useSettings.getState().proxyModes;
+  const modes = useSettings.getState().proxyModes;
+  console.log(`[getEffectiveModes] mobile=false, proxyModes=0x${modes.toString(16)}`);
+  return modes;
 }
 
 /** Start mobile VPN service and wait for fd readiness. No-op on desktop. */
