@@ -82,7 +82,17 @@ pub fn start_vpn_service(
 
     #[cfg(mobile)]
     {
+        // Disconnect any previous session to release bound ports
+        let rc = unsafe { prisma_ffi::prisma_disconnect(_client) };
+        if rc != PRISMA_OK {
+            tracing::warn!(rc, "prisma_disconnect before VPN start returned non-zero");
+        }
+
         let vpn = app.state::<tauri_plugin_vpn::Vpn<tauri::Wry>>();
+        // Stop any existing VPN service first
+        let _ = vpn.stop_service();
+        std::thread::sleep(std::time::Duration::from_millis(500));
+
         let result = vpn.start_service(_client as u64)?;
         if !result.success {
             return Err(result
@@ -90,24 +100,28 @@ pub fn start_vpn_service(
                 .unwrap_or_else(|| "Failed to start VPN".into()));
         }
         // Poll for the TUN fd in a background thread.
+        // Wait up to 30 seconds (150 × 200ms) for the VPN service to create the TUN.
         // Convert raw pointer to usize (which is Send) to cross the thread boundary.
-        // Pass the AppHandle (which is Clone + Send) to access state in the thread.
         let client_addr = _client as usize;
         let handle = app.clone();
         std::thread::spawn(move || {
             let vpn = handle.state::<tauri_plugin_vpn::Vpn<tauri::Wry>>();
-            for _ in 0..100 {
-                std::thread::sleep(std::time::Duration::from_millis(100));
-                if let Ok(r) = vpn.get_tun_fd() {
-                    if r.fd >= 0 {
-                        tracing::info!(fd = r.fd, "Got TUN fd from VPN service");
+            for i in 0..150 {
+                std::thread::sleep(std::time::Duration::from_millis(200));
+                match vpn.get_tun_fd() {
+                    Ok(r) if r.fd >= 0 => {
+                        tracing::info!(fd = r.fd, poll_count = i, "Got TUN fd from VPN service");
                         let client = client_addr as *mut prisma_ffi::PrismaClient;
                         unsafe { prisma_ffi::prisma_set_tun_fd(client, r.fd) };
                         return;
                     }
+                    Ok(_) => {} // fd == -1, service not ready yet
+                    Err(e) => {
+                        tracing::warn!(error = %e, poll_count = i, "Error polling TUN fd");
+                    }
                 }
             }
-            tracing::warn!("Timed out waiting for TUN fd from VPN service");
+            tracing::error!("Timed out waiting for TUN fd from VPN service (30s)");
         });
         Ok(())
     }
