@@ -63,6 +63,8 @@ class PrismaVpnService : VpnService() {
             .setMtu(TUN_MTU)
             .addAddress("10.0.85.1", 24)
             .addRoute("0.0.0.0", 0)
+            .addDnsServer("1.1.1.1")
+            .addDnsServer("1.0.0.1")
             .addDnsServer("8.8.8.8")
             .addDnsServer("8.8.4.4")
 
