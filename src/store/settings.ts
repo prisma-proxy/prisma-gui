@@ -16,7 +16,6 @@ export interface AppSettings {
   reconnectMaxAttempts: number;
   logLevel: "trace" | "debug" | "info" | "warn" | "error";
   logFormat: "pretty" | "json" | "compact";
-  tunEnabled: boolean;
   tunDevice: string;
   tunMtu: number;
   tunIncludeRoutes: string;  // newline-separated CIDRs
@@ -27,8 +26,6 @@ export interface AppSettings {
   allowLan: boolean;
   connectionPoolEnabled: boolean;
   connectionMode: "proxy" | "vpn";
-  splitTunnelProxy: string[];   // domains/apps routed through proxy
-  splitTunnelDirect: string[];  // domains/apps that bypass proxy
   proxyModes: number;           // bitmask: SOCKS5=0x01, SYSTEM_PROXY=0x02, TUN=0x04, PER_APP=0x08
 }
 
@@ -54,7 +51,6 @@ export const useSettings = create<SettingsStore>()(
       reconnectMaxAttempts: 5,
       logLevel: "info",
       logFormat: "pretty",
-      tunEnabled: false,
       tunDevice: "prisma-tun0",
       tunMtu: 1500,
       tunIncludeRoutes: "",
@@ -65,8 +61,6 @@ export const useSettings = create<SettingsStore>()(
       allowLan: false,
       connectionPoolEnabled: false,
       connectionMode: "proxy",
-      splitTunnelProxy: [],
-      splitTunnelDirect: [],
       proxyModes: 0x02, // System proxy by default
       patch: (values) => {
         const clamped = { ...values };

@@ -1,11 +1,11 @@
-import { useMemo } from "react";
+import { memo, useMemo } from "react";
 import type { SpeedTestEntry } from "@/store/speedTestHistory";
 
 interface Props {
   entries: SpeedTestEntry[];
 }
 
-export default function SpeedTestChart({ entries }: Props) {
+export default memo(function SpeedTestChart({ entries }: Props) {
   const last20 = useMemo(() => entries.slice(-20), [entries]);
   const maxVal = useMemo(
     () => Math.max(1, ...last20.map((e) => Math.max(e.downloadMbps, e.uploadMbps))),
@@ -50,4 +50,4 @@ export default function SpeedTestChart({ entries }: Props) {
       </div>
     </div>
   );
-}
+});

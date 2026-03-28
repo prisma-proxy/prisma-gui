@@ -396,13 +396,6 @@
     "importConfig": "导入配置",
     "configExported": "配置已导出（设置 + 规则 + 提供者）",
     "configImported": "配置已导入",
-    "splitTunneling": "分流",
-    "splitTunnelingDesc": "将特定域名或应用通过代理路由，或绕过代理直连。",
-    "proxyColumn": "代理",
-    "directColumn": "直连",
-    "addDomain": "添加",
-    "domainPlaceholder": "例如 example.com",
-    "splitTunnelingEmpty": "暂无条目",
     "allowLan": "允许局域网连接",
     "allowLanDesc": "允许网络上的其他设备使用此代理"
   },

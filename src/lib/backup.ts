@@ -16,7 +16,7 @@ export const SETTINGS_KEYS: (keyof AppSettings)[] = [
   "socks5Port", "httpPort", "dnsMode", "dnsUpstream", "fakeIpRange",
   "autoReconnect", "reconnectDelaySecs", "reconnectMaxAttempts",
   "logLevel", "logFormat",
-  "tunEnabled", "tunDevice", "tunMtu", "tunIncludeRoutes", "tunExcludeRoutes",
+  "tunDevice", "tunMtu", "tunIncludeRoutes", "tunExcludeRoutes",
   "portForwards", "routingGeoipPath", "routingGeositePath",
   "connectionPoolEnabled",
 ];
@@ -71,7 +71,6 @@ export function resetSettings(
     reconnectMaxAttempts: 5,
     logLevel: "info",
     logFormat: "pretty",
-    tunEnabled: false,
     tunDevice: "prisma-tun0",
     tunMtu: 1500,
     tunIncludeRoutes: "",

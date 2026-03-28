@@ -396,13 +396,6 @@
     "importConfig": "Import Config",
     "configExported": "Config exported (settings + rules + providers)",
     "configImported": "Config imported",
-    "splitTunneling": "Split Tunneling",
-    "splitTunnelingDesc": "Route specific domains or apps through the proxy, or bypass the proxy for direct access.",
-    "proxyColumn": "Proxy",
-    "directColumn": "Direct",
-    "addDomain": "Add",
-    "domainPlaceholder": "e.g. example.com",
-    "splitTunnelingEmpty": "No entries",
     "allowLan": "Allow LAN Connections",
     "allowLanDesc": "Allow other devices on the network to use this proxy"
   },

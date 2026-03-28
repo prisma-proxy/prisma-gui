@@ -11,7 +11,6 @@ import LoggingSection from "./settings/LoggingSection";
 import TunSection from "./settings/TunSection";
 import MobileSection from "./settings/MobileSection";
 import RoutingSection from "./settings/RoutingSection";
-import SplitTunnelingSection from "./settings/SplitTunnelingSection";
 import AutoReconnectSection from "./settings/AutoReconnectSection";
 import PerformanceSection from "./settings/PerformanceSection";
 import DataManagementSection from "./settings/DataManagementSection";
@@ -63,9 +62,6 @@ export default function Settings() {
 
         <Separator />
         <RoutingSection />
-
-        <Separator />
-        <SplitTunnelingSection />
 
         <Separator />
         <AutoReconnectSection />

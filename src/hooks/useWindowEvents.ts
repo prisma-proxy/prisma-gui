@@ -37,7 +37,7 @@ export function useWindowEvents() {
   // Sync toggle states to tray on init
   useEffect(() => {
     const s = useSettings.getState();
-    api.syncTrayToggles(s.startOnBoot, s.allowLan, s.tunEnabled).catch(() => {});
+    api.syncTrayToggles(s.startOnBoot, s.allowLan, (s.proxyModes & 0x04) !== 0).catch(() => {});
   }, []);
 
   // Handle tray "Connect/Disconnect" toggle
@@ -149,9 +149,13 @@ export function useWindowEvents() {
           case "allowLan":
             settings.patch({ allowLan: value });
             break;
-          case "tunEnabled":
-            settings.patch({ tunEnabled: value });
+          case "tunEnabled": {
+            // Toggle MODE_TUN in proxyModes (TUN controlled via mode flags, not separate setting)
+            const current = settings.proxyModes;
+            const newModes = value ? (current | 0x04) : (current & ~0x04 & ~0x08); // also clear PER_APP if TUN off
+            settings.setProxyModes(newModes);
             break;
+          }
         }
       }),
     ];

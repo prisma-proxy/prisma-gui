@@ -14,7 +14,7 @@ export function useConfigReload() {
 
   const {
     socks5Port, httpPort, dnsMode, dnsUpstream, fakeIpRange,
-    tunEnabled, tunDevice, tunMtu, tunIncludeRoutes, tunExcludeRoutes,
+    tunDevice, tunMtu, tunIncludeRoutes, tunExcludeRoutes,
     portForwards, routingGeoipPath, routingGeositePath, connectionPoolEnabled,
     connectionMode,
   } = useSettings();
@@ -44,7 +44,7 @@ export function useConfigReload() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     socks5Port, httpPort, dnsMode, dnsUpstream, fakeIpRange,
-    tunEnabled, tunDevice, tunMtu, tunIncludeRoutes, tunExcludeRoutes,
+    tunDevice, tunMtu, tunIncludeRoutes, tunExcludeRoutes,
     portForwards, routingGeoipPath, routingGeositePath, connectionPoolEnabled,
     connectionMode,
   ]);

@@ -93,7 +93,7 @@ export default function Connections() {
   // Single parent timer for all LiveDuration instances
   const [tick, setTick] = useState(0);
   useEffect(() => {
-    const id = setInterval(() => setTick((t) => t + 1), 3000);
+    const id = setInterval(() => setTick((t) => t + 1), 5000);
     return () => clearInterval(id);
   }, []);
 

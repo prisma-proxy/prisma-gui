@@ -38,10 +38,8 @@ export default function Home() {
   const rules = useRules((s) => s.rules);
   const { toggle, switchProxyMode } = useConnection();
   const events = useConnectionHistory((s) => s.events);
-  const todayUsage = useDataUsage((s) => {
-    const key = new Date().toISOString().slice(0, 10);
-    return s.daily[key];
-  }) ?? { up: 0, down: 0 };
+  const todayKey = useMemo(() => new Date().toISOString().slice(0, 10), []);
+  const todayUsage = useDataUsage((s) => s.daily[todayKey]) ?? { up: 0, down: 0 };
   const recentEvents = events.slice(-10).reverse();
 
   const [busy, setBusy] = useState(false);
@@ -95,21 +93,27 @@ export default function Home() {
     try { await toggle(); } finally { setBusy(false); }
   }, [toggle]);
 
-  const modeValues: string[] = [];
-  if (proxyModes & MODE_SOCKS5)       modeValues.push("socks5");
-  if (proxyModes & MODE_SYSTEM_PROXY) modeValues.push("sys");
-  if (proxyModes & MODE_TUN)          modeValues.push("tun");
-  if (proxyModes & MODE_PER_APP)      modeValues.push("app");
+  // SOCKS5 is always on (fundamental inbound); only System/TUN/Per-App are toggleable
+  const modeValues = useMemo(() => {
+    const vals: string[] = [];
+    if (proxyModes & MODE_SYSTEM_PROXY) vals.push("sys");
+    if (proxyModes & MODE_TUN)          vals.push("tun");
+    if (proxyModes & MODE_PER_APP)      vals.push("app");
+    return vals;
+  }, [proxyModes]);
 
   const onModeChange = useCallback((vals: string[]) => {
-    let flags = 0;
-    if (vals.includes("socks5")) flags |= MODE_SOCKS5;
-    if (vals.includes("sys"))    flags |= MODE_SYSTEM_PROXY;
-    if (vals.includes("tun"))    flags |= MODE_TUN;
-    if (vals.includes("app"))    flags |= MODE_PER_APP;
-    const newModes = flags || MODE_SYSTEM_PROXY;
+    // Per-App requires TUN — auto-enable TUN if Per-App is toggled on
+    if (vals.includes("app") && !vals.includes("tun")) vals.push("tun");
+    // Disabling TUN also disables Per-App
+    if (!vals.includes("tun")) vals = vals.filter(v => v !== "app");
+
+    let flags = MODE_SOCKS5; // always on
+    if (vals.includes("sys")) flags |= MODE_SYSTEM_PROXY;
+    if (vals.includes("tun")) flags |= MODE_TUN;
+    if (vals.includes("app")) flags |= MODE_PER_APP;
     const oldModes = useSettings.getState().proxyModes;
-    switchProxyMode(oldModes, newModes);
+    switchProxyMode(oldModes, flags);
   }, [switchProxyMode]);
 
   const activeProfile = activeProfileIdx !== null ? profiles[activeProfileIdx] : profiles[0];
@@ -226,18 +230,20 @@ export default function Home() {
       {/* Proxy modes */}
       <div className="space-y-1">
         <p className="text-xs text-muted-foreground">{t("home.proxyModes")}</p>
-        <ToggleGroup
-          type="multiple"
-          value={modeValues}
-          onValueChange={onModeChange}
-          variant="outline"
-          size="sm"
-        >
-          <ToggleGroupItem value="socks5">{t("home.modeProxyOnly")}</ToggleGroupItem>
-          <ToggleGroupItem value="sys">{t("home.modeSystem")}</ToggleGroupItem>
-          <ToggleGroupItem value="tun">TUN</ToggleGroupItem>
-          <ToggleGroupItem value="app">{t("home.modePerApp")}</ToggleGroupItem>
-        </ToggleGroup>
+        <div className="flex items-center gap-2">
+          <Badge variant="secondary" className="text-xs">{t("home.modeProxyOnly")}</Badge>
+          <ToggleGroup
+            type="multiple"
+            value={modeValues}
+            onValueChange={onModeChange}
+            variant="outline"
+            size="sm"
+          >
+            <ToggleGroupItem value="sys">{t("home.modeSystem")}</ToggleGroupItem>
+            <ToggleGroupItem value="tun">TUN</ToggleGroupItem>
+            <ToggleGroupItem value="app">{t("home.modePerApp")}</ToggleGroupItem>
+          </ToggleGroup>
+        </div>
       </div>
 
       {/* Connect/Disconnect */}

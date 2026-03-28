@@ -86,23 +86,28 @@ pub fn run() {
         .setup(|app| {
             state::APP_HANDLE.set(app.handle().clone()).ok();
 
-            // Copy bundled wintun.dll next to the exe so wintun::load() finds it
+            // Copy bundled wintun.dll next to the exe so wintun::load() finds it.
+            // Always overwrite to ensure the correct version is present.
             #[cfg(windows)]
             {
-                if let Ok(resource_dir) = app.path().resource_dir() {
+                let copied = (|| -> Option<()> {
+                    let resource_dir = app.path().resource_dir().ok()?;
                     let dll_src = resource_dir.join("resources").join("wintun.dll");
-                    if dll_src.exists() {
-                        if let Ok(exe_path) = std::env::current_exe() {
-                            if let Some(exe_dir) = exe_path.parent() {
-                                let dll_dst = exe_dir.join("wintun.dll");
-                                if !dll_dst.exists() {
-                                    if let Err(e) = std::fs::copy(&dll_src, &dll_dst) {
-                                        tracing::warn!("Failed to copy wintun.dll: {e}");
-                                    }
-                                }
-                            }
-                        }
+                    if !dll_src.exists() {
+                        tracing::warn!("Bundled wintun.dll not found at {}", dll_src.display());
+                        return None;
                     }
+                    let exe_dir = std::env::current_exe().ok()?.parent()?.to_path_buf();
+                    let dll_dst = exe_dir.join("wintun.dll");
+                    if let Err(e) = std::fs::copy(&dll_src, &dll_dst) {
+                        tracing::error!("Failed to copy wintun.dll to {}: {e}", dll_dst.display());
+                        return None;
+                    }
+                    tracing::info!("wintun.dll ready at {}", dll_dst.display());
+                    Some(())
+                })();
+                if copied.is_none() {
+                    tracing::warn!("wintun.dll setup incomplete — TUN mode may not work");
                 }
             }
 
