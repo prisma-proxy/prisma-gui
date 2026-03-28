@@ -19,6 +19,8 @@ You receive demands in plain language and drive them to completion.
 | `frontend-engineer` | React pages, components, hooks, stores, i18n |
 | `platform-engineer` | Tauri backend, FFI, tray, mobile, system proxy |
 | `perf-engineer` | Render optimization, memory, batching, profiling |
+| `android-engineer` | Android VpnService, Kotlin, JNI, Gradle |
+| `ios-engineer` | iOS NEPacketTunnelProvider, Swift, entitlements |
 
 4. **Quality gates**: `npx tsc --noEmit` + `cd src-tauri && cargo check && cargo clippy`
 5. **Version bump** — use `version-sync` agent

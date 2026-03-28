@@ -1,17 +1,17 @@
 import { NavLink } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { Home, List, Network, Activity, Settings } from "lucide-react";
+import { Home, List, Network, BarChart3, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export default function BottomNav() {
   const { t } = useTranslation();
 
   const links = [
-    { to: "/",           icon: Home,      label: t("nav.home") },
-    { to: "/profiles",   icon: List,      label: t("nav.profiles") },
-    { to: "/connections", icon: Network,  label: t("nav.connections") },
-    { to: "/diagnostics", icon: Activity,  label: t("nav.diagnostics") },
-    { to: "/settings",   icon: Settings,  label: t("nav.settings") },
+    { to: "/",           icon: Home,       label: t("nav.home") },
+    { to: "/profiles",   icon: List,       label: t("nav.profiles") },
+    { to: "/connections", icon: Network,   label: t("nav.connections") },
+    { to: "/analytics",  icon: BarChart3,  label: t("nav.analytics") },
+    { to: "/settings",   icon: Settings,   label: t("nav.settings") },
   ];
 
   return (

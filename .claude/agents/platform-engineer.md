@@ -22,8 +22,19 @@ You handle all Tauri backend and platform-specific work in `src-tauri/src/`.
 - FFI callback runs on native thread — marshal UI operations to main thread
 - Mobile: `#[cfg(desktop)]` / `#[cfg(mobile)]` gating for platform-specific code
 
+## Mobile Targets
+
+- **Android**: Spawn `android-engineer` for VpnService, Kotlin, JNI, Gradle work
+- **iOS**: Spawn `ios-engineer` for NEPacketTunnelProvider, Swift, entitlements work
+- Tauri mobile commands live in `src-tauri/src/mobile.rs`
+- FFI mobile layer: `prisma/crates/prisma-ffi/src/android.rs` and `ios.rs`
+- TUN device on mobile uses pre-established fd from platform VPN service (no OS routing needed)
+
 ## Quality Gates
 
 ```bash
 cd src-tauri && cargo check && cargo clippy --all-targets && cargo fmt --all -- --check
+# Mobile:
+# tauri android dev   (requires Android SDK)
+# tauri ios dev       (requires Xcode)
 ```
