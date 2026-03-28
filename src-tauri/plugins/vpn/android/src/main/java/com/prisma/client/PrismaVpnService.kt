@@ -27,11 +27,8 @@ class PrismaVpnService : VpnService() {
         private var vpnInterface: ParcelFileDescriptor? = null
 
         fun isRunning(): Boolean = vpnInterface != null
-
-        init {
-            // Load the native library containing JNI exports (prisma-ffi)
-            System.loadLibrary("prisma_ffi")
-        }
+        // No System.loadLibrary needed — JNI symbols are in the main Tauri
+        // app .so which is already loaded in this process.
     }
 
     private var coreHandle: Long = 0
