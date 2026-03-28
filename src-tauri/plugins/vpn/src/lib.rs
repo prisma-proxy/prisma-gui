@@ -20,7 +20,7 @@ pub struct ServiceResult {
 mod mobile;
 
 #[cfg(mobile)]
-use mobile::Vpn;
+pub use mobile::Vpn;
 
 /// Desktop stub — all methods return sensible defaults.
 #[cfg(not(mobile))]
