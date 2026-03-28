@@ -5037,6 +5037,7 @@ dependencies = [
  "dirs 5.0.1",
  "futures-util",
  "image",
+ "jni",
  "once_cell",
  "prisma-client",
  "prisma-core",

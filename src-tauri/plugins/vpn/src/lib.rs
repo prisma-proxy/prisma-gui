@@ -14,6 +14,13 @@ pub struct ServiceResult {
     pub success: bool,
     #[serde(default)]
     pub message: Option<String>,
+    /// TUN file descriptor returned by the Android VPN service. -1 if not available.
+    #[serde(default = "default_fd")]
+    pub fd: i32,
+}
+
+fn default_fd() -> i32 {
+    -1
 }
 
 #[cfg(mobile)]
@@ -38,12 +45,14 @@ impl Vpn {
         Ok(ServiceResult {
             success: true,
             message: None,
+            fd: -1,
         })
     }
     pub fn stop_service(&self) -> Result<ServiceResult, String> {
         Ok(ServiceResult {
             success: true,
             message: None,
+            fd: -1,
         })
     }
 }

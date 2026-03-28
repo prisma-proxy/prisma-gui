@@ -11,10 +11,11 @@ import android.os.ParcelFileDescriptor
 import android.util.Log
 
 /**
- * Android VPN service that creates a TUN interface and passes the fd to Rust.
+ * Android VPN service that creates a TUN interface.
  *
- * Package: com.prisma.client — must match JNI exports in prisma-ffi/src/android.rs
- * (Java_com_prisma_client_PrismaVpnService_nativeSetTunFd)
+ * The TUN fd is stored in a companion object field and read by the
+ * Tauri VPN plugin's Rust side (which calls prisma_set_tun_fd).
+ * No direct JNI calls from Kotlin — all FFI goes through the plugin.
  */
 class PrismaVpnService : VpnService() {
 
@@ -26,20 +27,14 @@ class PrismaVpnService : VpnService() {
 
         private var vpnInterface: ParcelFileDescriptor? = null
 
+        /** The TUN fd, readable from the plugin after service starts. -1 if not started. */
+        @Volatile
+        @JvmStatic
+        var tunFd: Int = -1
+            private set
+
         fun isRunning(): Boolean = vpnInterface != null
-
-        init {
-            // Load the Tauri app's native library which contains JNI exports
-            // from prisma-ffi. The lib name matches [lib] name in Cargo.toml.
-            try {
-                System.loadLibrary("prisma_gui_lib")
-            } catch (_: UnsatisfiedLinkError) {
-                // Already loaded by the main activity — safe to ignore
-            }
-        }
     }
-
-    private var coreHandle: Long = 0
 
     override fun onCreate() {
         super.onCreate()
@@ -51,8 +46,6 @@ class PrismaVpnService : VpnService() {
             stopVpn()
             return START_NOT_STICKY
         }
-
-        coreHandle = intent?.getLongExtra("CORE_HANDLE", 0) ?: 0
 
         return try {
             startVpn()
@@ -80,18 +73,11 @@ class PrismaVpnService : VpnService() {
         }
 
         val pfd = builder.establish()
-            ?: throw IllegalStateException("VPN permission not granted — call VpnService.prepare() first")
+            ?: throw IllegalStateException("VPN permission not granted")
 
         vpnInterface = pfd
-        val fd = pfd.fd
-        Log.i(TAG, "TUN interface established, fd=$fd")
-
-        if (coreHandle != 0L) {
-            nativeSetTunFd(coreHandle, fd)
-            Log.i(TAG, "TUN fd passed to Rust (handle=$coreHandle)")
-        } else {
-            Log.w(TAG, "Core handle not set — cannot pass TUN fd to Rust")
-        }
+        tunFd = pfd.fd
+        Log.i(TAG, "TUN interface established, fd=$tunFd")
 
         startForeground(NOTIFICATION_ID, buildNotification())
     }
@@ -99,10 +85,7 @@ class PrismaVpnService : VpnService() {
     private fun stopVpn() {
         vpnInterface?.close()
         vpnInterface = null
-
-        if (coreHandle != 0L) {
-            nativeSetTunFd(coreHandle, -1)
-        }
+        tunFd = -1
 
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
@@ -154,8 +137,4 @@ class PrismaVpnService : VpnService() {
             )
             .build()
     }
-
-    // JNI native method — implemented in prisma-ffi/src/android.rs
-    // Name matches: Java_com_prisma_client_PrismaVpnService_nativeSetTunFd
-    private external fun nativeSetTunFd(handle: Long, fd: Int): Int
 }

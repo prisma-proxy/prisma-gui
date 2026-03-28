@@ -89,6 +89,10 @@ pub fn start_vpn_service(
                 .message
                 .unwrap_or_else(|| "Failed to start VPN".into()));
         }
+        // Set the TUN fd on the PrismaClient so the TUN handler can use it
+        if result.fd >= 0 {
+            unsafe { prisma_ffi::prisma_set_tun_fd(_client, result.fd) };
+        }
         Ok(())
     }
     #[cfg(not(mobile))]

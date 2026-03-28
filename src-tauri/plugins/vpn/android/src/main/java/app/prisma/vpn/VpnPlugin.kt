@@ -20,8 +20,6 @@ class StartServiceArgs {
 @TauriPlugin
 class VpnPlugin(private val activity: Activity) : Plugin(activity) {
 
-    private var clientHandle: Long = 0
-
     @Command
     fun checkPermission(invoke: Invoke) {
         val intent = VpnService.prepare(activity)
@@ -39,7 +37,6 @@ class VpnPlugin(private val activity: Activity) : Plugin(activity) {
             invoke.resolve(result)
             return
         }
-        // Use Tauri's Plugin.startActivityForResult with a named callback
         startActivityForResult(invoke, intent, "vpnPermissionResult")
     }
 
@@ -54,9 +51,6 @@ class VpnPlugin(private val activity: Activity) : Plugin(activity) {
     @Command
     fun startService(invoke: Invoke) {
         try {
-            val args = invoke.parseArgs(StartServiceArgs::class.java)
-            clientHandle = args.handle
-
             val prepareIntent = VpnService.prepare(activity)
             if (prepareIntent != null) {
                 invoke.reject("VPN permission not granted", "PERMISSION_DENIED")
@@ -65,12 +59,23 @@ class VpnPlugin(private val activity: Activity) : Plugin(activity) {
 
             val serviceIntent = Intent(activity, PrismaVpnService::class.java).apply {
                 action = "START"
-                putExtra("CORE_HANDLE", clientHandle)
             }
             activity.startForegroundService(serviceIntent)
 
+            // Wait briefly for the service to create the TUN and set the fd
+            var fd = -1
+            for (i in 0 until 50) { // up to 5 seconds
+                Thread.sleep(100)
+                fd = PrismaVpnService.tunFd
+                if (fd >= 0) break
+            }
+
             val result = JSObject()
-            result.put("success", true)
+            result.put("success", fd >= 0)
+            result.put("fd", fd)
+            if (fd < 0) {
+                result.put("message", "VPN service started but TUN fd not available")
+            }
             invoke.resolve(result)
         } catch (e: Exception) {
             invoke.reject(e.message ?: "Failed to start VPN service", "START_ERROR")
