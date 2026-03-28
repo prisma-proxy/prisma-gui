@@ -1,13 +1,14 @@
 //! Mobile-oriented Tauri commands for iOS and Android.
 //!
-//! These commands bridge the Tauri frontend to the `prisma_ffi` mobile lifecycle
-//! functions (background/foreground transitions, network changes, battery, etc.).
-//!
-//! While primarily used on mobile, they compile on all targets so the handler
-//! table stays uniform. On desktop the lifecycle calls are valid no-ops.
+//! VPN permission and service commands use the `tauri-plugin-vpn` Kotlin plugin
+//! on Android, which calls `VpnService.prepare()` and starts `PrismaVpnService`.
+//! Other lifecycle commands (background, foreground, network, battery) call
+//! directly into `prisma_ffi`.
 
 use crate::state::AppState;
 use prisma_ffi::PRISMA_OK;
+#[cfg(mobile)]
+use tauri::Manager;
 
 /// Helper: extract the raw `PrismaClient` pointer from managed state.
 fn client_ptr(state: &tauri::State<AppState>) -> Result<*mut prisma_ffi::PrismaClient, String> {
@@ -25,119 +26,119 @@ fn client_ptr(state: &tauri::State<AppState>) -> Result<*mut prisma_ffi::PrismaC
 
 /// Check whether VPN permission is granted.
 ///
-/// On Android this checks for `BIND_VPN_SERVICE` via VpnService.prepare().
-/// On iOS this checks the cached VPN permission status.
-/// On desktop this always returns `true`.
+/// Android: calls VpnPlugin.checkPermission() → VpnService.prepare().
+/// iOS: checks cached permission status from FFI.
+/// Desktop: always true.
 #[tauri::command]
-pub fn check_vpn_permission(state: tauri::State<AppState>) -> Result<bool, String> {
+pub fn check_vpn_permission(
+    app: tauri::AppHandle,
+    state: tauri::State<AppState>,
+) -> Result<bool, String> {
     #[cfg(target_os = "android")]
     {
-        // On Android, we check if VpnService.prepare() would return null
-        // (null means permission already granted). We use the FFI layer's
-        // cached check — the Kotlin VpnService sets the status when started.
-        let client = client_ptr(&state)?;
-        let fd = unsafe { prisma_ffi::prisma_get_tun_fd(client) };
-        // If a TUN fd is already set, VPN permission was granted
-        if fd >= 0 {
-            return Ok(true);
-        }
-        // Conservatively return true — actual permission dialog is triggered
-        // by startVpnService which calls VpnService.prepare() on Android.
-        // The OS will show the consent dialog at service start time.
-        Ok(true)
+        let _ = &state;
+        let vpn = app.state::<tauri_plugin_vpn::Vpn<tauri::Wry>>();
+        vpn.check_permission().map(|r| r.granted)
     }
     #[cfg(target_os = "ios")]
     {
-        let _ = &state;
+        let _ = (&app, &state);
         let status = unsafe { prisma_ffi::prisma_ios_vpn_permission_status() };
-        match status {
-            1 => Ok(true),
-            0 => Ok(false),
-            _ => {
-                // Unknown / not yet checked — default to false so UI prompts check
-                Ok(false)
-            }
-        }
+        Ok(status == 1)
     }
     #[cfg(not(any(target_os = "android", target_os = "ios")))]
     {
-        let _ = &state;
+        let _ = (&app, &state);
         Ok(true)
     }
 }
 
 /// Request VPN permission from the operating system.
 ///
-/// On Android this triggers `VpnService.prepare()` via the Kotlin layer.
-/// On iOS this is handled by NEVPNManager when the tunnel starts.
-/// On desktop this always returns `true`.
+/// Android: launches the system VPN consent dialog via VpnPlugin.requestPermission().
+/// iOS: implicit with Network Extension entitlement.
+/// Desktop: always true.
 #[tauri::command]
-pub fn request_vpn_permission() -> Result<bool, String> {
-    // On Android, the actual VPN permission intent is launched by the
-    // Kotlin PrismaVpnService.prepare(). The start_vpn_service command
-    // triggers this flow. If the user denies, the service won't start.
-    //
-    // On iOS, VPN permission is implicitly granted via the Network Extension
-    // entitlement — the OS prompts the user on first tunnel activation.
-    //
-    // This command returns true to indicate the request was initiated.
-    // The actual grant/deny result is observed when the VPN service
-    // starts (or fails to start).
-    Ok(true)
+pub fn request_vpn_permission(app: tauri::AppHandle) -> Result<bool, String> {
+    #[cfg(target_os = "android")]
+    {
+        let vpn = app.state::<tauri_plugin_vpn::Vpn<tauri::Wry>>();
+        vpn.request_permission().map(|r| r.granted)
+    }
+    #[cfg(not(target_os = "android"))]
+    {
+        let _ = &app;
+        Ok(true)
+    }
 }
 
 // ── VPN service lifecycle ───────────────────────────────────────────────────
 
 /// Start the native VPN service.
 ///
-/// On Android: starts `PrismaVpnService` which creates TUN and passes fd to Rust.
-/// On iOS: activates the Network Extension tunnel provider.
-/// On desktop: no-op (TUN is managed directly by the Rust engine).
+/// Android: starts PrismaVpnService via VpnPlugin.startService().
+/// iOS: emits event for Swift layer.
+/// Desktop: no-op.
 #[tauri::command]
-pub fn start_vpn_service(state: tauri::State<AppState>) -> Result<(), String> {
+pub fn start_vpn_service(
+    app: tauri::AppHandle,
+    state: tauri::State<AppState>,
+) -> Result<(), String> {
     let _client = client_ptr(&state)?;
 
-    #[cfg(any(target_os = "android", target_os = "ios"))]
+    #[cfg(target_os = "android")]
     {
-        // On mobile, emit a Tauri event that the native layer (Kotlin/Swift)
-        // intercepts to start the VPN service with the PrismaClient handle.
-        if let Some(handle) = crate::state::APP_HANDLE.get() {
-            use tauri::Emitter;
-            let client_handle = _client as usize;
-            let _ = handle.emit(
-                "vpn://start",
-                serde_json::json!({
-                    "handle": client_handle,
-                }),
-            );
+        let vpn = app.state::<tauri_plugin_vpn::Vpn<tauri::Wry>>();
+        let result = vpn.start_service(_client as u64)?;
+        if !result.success {
+            return Err(result
+                .message
+                .unwrap_or_else(|| "Failed to start VPN".into()));
         }
+        Ok(())
+    }
+    #[cfg(target_os = "ios")]
+    {
+        use tauri::Emitter;
+        let _ = app.emit(
+            "vpn://start",
+            serde_json::json!({ "handle": _client as usize }),
+        );
         Ok(())
     }
     #[cfg(not(any(target_os = "android", target_os = "ios")))]
     {
-        // Desktop: TUN is handled by the Rust engine directly.
+        let _ = &app;
         Ok(())
     }
 }
 
 /// Stop the native VPN service.
 ///
-/// On Android: sends stop intent to `PrismaVpnService`.
-/// On iOS: stops the Network Extension tunnel.
-/// On desktop: no-op.
+/// Android: stops PrismaVpnService via VpnPlugin.stopService().
+/// iOS: emits stop event.
+/// Desktop: no-op.
 #[tauri::command]
-pub fn stop_vpn_service(state: tauri::State<AppState>) -> Result<(), String> {
-    let client = client_ptr(&state)?;
+pub fn stop_vpn_service(
+    app: tauri::AppHandle,
+    state: tauri::State<AppState>,
+) -> Result<(), String> {
+    let _client = client_ptr(&state)?;
+    unsafe { prisma_ffi::prisma_set_tun_fd(_client, -1) };
 
-    // Clear the TUN fd so the engine knows the device is going away
-    unsafe { prisma_ffi::prisma_set_tun_fd(client, -1) };
-
-    #[cfg(any(target_os = "android", target_os = "ios"))]
+    #[cfg(target_os = "android")]
     {
-        if let Some(handle) = crate::state::APP_HANDLE.get() {
-            use tauri::Emitter;
-            let _ = handle.emit("vpn://stop", serde_json::json!({}));
-        }
+        let vpn = app.state::<tauri_plugin_vpn::Vpn<tauri::Wry>>();
+        let _ = vpn.stop_service();
+    }
+    #[cfg(target_os = "ios")]
+    {
+        use tauri::Emitter;
+        let _ = app.emit("vpn://stop", serde_json::json!({}));
+    }
+    #[cfg(not(any(target_os = "android", target_os = "ios")))]
+    {
+        let _ = &app;
     }
 
     Ok(())
@@ -146,11 +147,7 @@ pub fn stop_vpn_service(state: tauri::State<AppState>) -> Result<(), String> {
 // ── Network info ─────────────────────────────────────────────────────────────
 
 /// Get the current network type.
-///
 /// Returns: 0 = disconnected, 1 = WiFi, 2 = cellular, 3 = ethernet.
-///
-/// On mobile this reads the value cached by the FFI layer (set via
-/// `prisma_on_network_change`). On desktop defaults to ethernet (3).
 #[tauri::command]
 pub fn get_network_type(state: tauri::State<AppState>) -> Result<i32, String> {
     let client = client_ptr(&state)?;
@@ -159,8 +156,6 @@ pub fn get_network_type(state: tauri::State<AppState>) -> Result<i32, String> {
 }
 
 /// Notify the proxy engine of a network connectivity change.
-///
-/// `network_type`: 0 = disconnected, 1 = WiFi, 2 = cellular, 3 = ethernet.
 #[tauri::command]
 pub fn on_network_change(state: tauri::State<AppState>, network_type: i32) -> Result<(), String> {
     let client = client_ptr(&state)?;
@@ -174,21 +169,13 @@ pub fn on_network_change(state: tauri::State<AppState>, network_type: i32) -> Re
 
 // ── Battery ──────────────────────────────────────────────────────────────────
 
-/// Battery status info returned to the frontend.
 #[derive(serde::Serialize)]
 pub struct BatteryStatus {
-    /// Battery level as a percentage (0-100), or -1 if unknown.
     pub level: i32,
-    /// Whether the device is currently charging.
     pub charging: bool,
-    /// Whether low-power / battery saver mode is active.
     pub low_power_mode: bool,
 }
 
-/// Get the current battery status for adaptive behavior.
-///
-/// On desktop returns level=-1 (unknown), charging=false, low_power_mode=false.
-/// On mobile a future platform plugin can provide real values.
 #[tauri::command]
 pub fn get_battery_status() -> Result<BatteryStatus, String> {
     Ok(BatteryStatus {
@@ -200,7 +187,6 @@ pub fn get_battery_status() -> Result<BatteryStatus, String> {
 
 // ── Lifecycle ────────────────────────────────────────────────────────────────
 
-/// Notify the proxy engine that the app entered the background.
 #[tauri::command]
 pub fn on_app_background(state: tauri::State<AppState>) -> Result<(), String> {
     let client = client_ptr(&state)?;
@@ -212,7 +198,6 @@ pub fn on_app_background(state: tauri::State<AppState>) -> Result<(), String> {
     }
 }
 
-/// Notify the proxy engine that the app returned to the foreground.
 #[tauri::command]
 pub fn on_app_foreground(state: tauri::State<AppState>) -> Result<(), String> {
     let client = client_ptr(&state)?;
@@ -224,7 +209,6 @@ pub fn on_app_foreground(state: tauri::State<AppState>) -> Result<(), String> {
     }
 }
 
-/// Notify the proxy engine of a low-memory warning from the OS.
 #[tauri::command]
 pub fn on_memory_warning(state: tauri::State<AppState>) -> Result<(), String> {
     let client = client_ptr(&state)?;

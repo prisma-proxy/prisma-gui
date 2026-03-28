@@ -152,8 +152,14 @@ export default function MobileSection() {
               try {
                 const ok = await api.requestVpnPermission();
                 setVpnPermission(ok);
-                if (ok) notify.success(t("settings.vpnGranted"));
-              } catch (e) { notify.error(String(e)); }
+                if (ok) {
+                  notify.success(t("settings.vpnGranted"));
+                } else {
+                  notify.warning(t("settings.vpnRequestFailed"));
+                }
+              } catch (e) {
+                notify.error(t("settings.vpnRequestFailed"));
+              }
             }}>
               {t("settings.vpnRequest")}
             </Button>

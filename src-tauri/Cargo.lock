@@ -5077,6 +5077,7 @@ dependencies = [
  "tauri-plugin-notification",
  "tauri-plugin-os",
  "tauri-plugin-shell",
+ "tauri-plugin-vpn",
  "tokio",
  "tracing",
  "windows-sys 0.59.0",
@@ -7089,6 +7090,17 @@ dependencies = [
  "tauri-plugin",
  "thiserror 2.0.18",
  "tokio",
+]
+
+[[package]]
+name = "tauri-plugin-vpn"
+version = "0.1.0"
+dependencies = [
+ "log",
+ "serde",
+ "serde_json",
+ "tauri",
+ "tauri-plugin",
 ]
 
 [[package]]

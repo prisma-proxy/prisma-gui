@@ -25,6 +25,7 @@ tauri-plugin-autostart    = { version = "2", optional = true }
 tauri-plugin-clipboard-manager = "2"
 tauri-plugin-dialog   = "2"
 tauri-plugin-fs       = "2"
+tauri-plugin-vpn      = { path = "plugins/vpn" }
 serde      = { version = "1", features = ["derive"] }
 serde_json = "1"
 prisma-ffi  = { path = "../prisma/crates/prisma-ffi" }
