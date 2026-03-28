@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import { Wifi, WifiOff, RefreshCw, Clock, ArrowUpDown, ArrowDown, ArrowUp, Timer, Database, Signal, ClipboardCopy, ShieldAlert } from "lucide-react";
+import { Wifi, WifiOff, RefreshCw, Clock, ArrowUpDown, ArrowDown, ArrowUp, Timer, Database, Signal, ClipboardCopy, ShieldAlert, Shield, Router } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -32,6 +32,8 @@ export default function Home() {
   const stats = useStore((s) => s.stats);
   const profiles = useStore((s) => s.profiles);
   const proxyModes = useSettings((s) => s.proxyModes);
+  const connectionMode = useSettings((s) => s.connectionMode);
+  const patchSettings = useSettings((s) => s.patch);
   const activeProfileIdx = useStore((s) => s.activeProfileIdx);
   const setActiveProfileIdx = useStore((s) => s.setActiveProfileIdx);
   const setProfiles = useStore((s) => s.setProfiles);
@@ -289,6 +291,27 @@ export default function Home() {
           {latency !== null && (
             <Badge variant="outline" className={`ml-auto text-[10px] ${latencyColor}`}>{latency}ms</Badge>
           )}
+        </div>
+      )}
+
+      {/* Mobile: connection mode toggle (Proxy / VPN) */}
+      {!isDesktop && (
+        <div className="space-y-1">
+          <p className="text-xs text-muted-foreground">{t("settings.connectionMode")}</p>
+          <ToggleGroup
+            type="single"
+            value={connectionMode}
+            onValueChange={(v) => v && patchSettings({ connectionMode: v as "proxy" | "vpn" })}
+            variant="outline"
+            size="sm"
+          >
+            <ToggleGroupItem value="proxy" className="gap-1.5">
+              <Router size={13} /> {t("settings.modeProxy")}
+            </ToggleGroupItem>
+            <ToggleGroupItem value="vpn" className="gap-1.5">
+              <Shield size={13} /> {t("settings.modeVpn")}
+            </ToggleGroupItem>
+          </ToggleGroup>
         </div>
       )}
 
