@@ -77,8 +77,10 @@ class VpnPlugin(private val activity: Activity) : Plugin(activity) {
 
     @Command
     fun getTunFd(invoke: Invoke) {
+        val fd = PrismaVpnService.tunFd
         val result = JSObject()
-        result.put("fd", PrismaVpnService.tunFd)
+        result.put("success", fd >= 0)
+        result.put("fd", fd)
         invoke.resolve(result)
     }
 
