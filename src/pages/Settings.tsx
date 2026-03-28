@@ -55,9 +55,12 @@ export default function Settings() {
         <LoggingSection />
         <Separator />
 
-        <TunSection />
-
-        <Separator />
+        {!isMobile && (
+          <>
+            <TunSection />
+            <Separator />
+          </>
+        )}
         <RoutingSection />
 
         <Separator />
@@ -69,8 +72,12 @@ export default function Settings() {
         <Separator />
         <DataManagementSection />
 
-        <Separator />
-        <UpdatesSection />
+        {!isMobile && (
+          <>
+            <Separator />
+            <UpdatesSection />
+          </>
+        )}
 
         <Separator />
         <AboutSection />

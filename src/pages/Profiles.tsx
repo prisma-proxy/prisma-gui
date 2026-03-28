@@ -201,7 +201,7 @@ export default function Profiles() {
   const proxyModes = useSettings((s) => s.proxyModes);
   const metrics = useProfileMetrics((s) => s.metrics);
   const { connectTo, disconnect, switchTo } = useConnection();
-  const { isMobile } = usePlatform();
+  const { isMobile, isDesktop } = usePlatform();
 
   // Latency testing state
   const [latencyMap, setLatencyMap] = useState<Record<string, LatencyEntry>>({});
@@ -754,12 +754,16 @@ export default function Profiles() {
                   <Signal size={14} className="mr-2" /> {t("profiles.testAll")}
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onSelect={handleExportAll}>
-                  <Download size={14} className="mr-2" /> {t("profiles.exportAll")}
-                </DropdownMenuItem>
-                <DropdownMenuItem onSelect={handleImportFile}>
-                  <Upload size={14} className="mr-2" /> {t("profiles.importFile")}
-                </DropdownMenuItem>
+                {isDesktop && (
+                  <DropdownMenuItem onSelect={handleExportAll}>
+                    <Download size={14} className="mr-2" /> {t("profiles.exportAll")}
+                  </DropdownMenuItem>
+                )}
+                {isDesktop && (
+                  <DropdownMenuItem onSelect={handleImportFile}>
+                    <Upload size={14} className="mr-2" /> {t("profiles.importFile")}
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onSelect={() => setSubImportOpen(true)}>
                   <Globe size={14} className="mr-2" /> {t("profiles.importSub")}
@@ -802,12 +806,16 @@ export default function Profiles() {
             <Button size="sm" variant="ghost" onClick={testAllProfiles} disabled={testingAll} title={t("profiles.testAll")}>
               {testingAll ? <Loader2 size={14} className="animate-spin" /> : <Signal size={14} />}
             </Button>
-            <Button size="sm" variant="ghost" onClick={handleExportAll} title={t("profiles.exportAll")}>
-              <Download size={14} />
-            </Button>
-            <Button size="sm" variant="ghost" onClick={handleImportFile} title={t("profiles.importFile")}>
-              <Upload size={14} />
-            </Button>
+            {isDesktop && (
+              <Button size="sm" variant="ghost" onClick={handleExportAll} title={t("profiles.exportAll")}>
+                <Download size={14} />
+              </Button>
+            )}
+            {isDesktop && (
+              <Button size="sm" variant="ghost" onClick={handleImportFile} title={t("profiles.importFile")}>
+                <Upload size={14} />
+              </Button>
+            )}
             {hasSubscriptions && (
               <Button size="sm" variant="ghost" onClick={handleRefreshSubscriptions} disabled={subRefreshing} title={t("profiles.refreshSub")}>
                 {subRefreshing ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
@@ -973,17 +981,19 @@ export default function Profiles() {
           <DialogHeader><DialogTitle>{t("profiles.importQrTitle")}</DialogTitle></DialogHeader>
           <div className="space-y-2">
             {/* Image file picker */}
-            <Button
-              variant="outline"
-              className="w-full"
-              onClick={handleQrImageImport}
-              disabled={qrImageDecoding || cameraActive}
-            >
-              {qrImageDecoding
-                ? <><Loader2 size={14} className="mr-1.5 animate-spin" /> {t("profiles.decodingImage")}</>
-                : <><ImagePlus size={14} className="mr-1.5" /> {t("profiles.importQrFromImage")}</>
-              }
-            </Button>
+            {isDesktop && (
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={handleQrImageImport}
+                disabled={qrImageDecoding || cameraActive}
+              >
+                {qrImageDecoding
+                  ? <><Loader2 size={14} className="mr-1.5 animate-spin" /> {t("profiles.decodingImage")}</>
+                  : <><ImagePlus size={14} className="mr-1.5" /> {t("profiles.importQrFromImage")}</>
+                }
+              </Button>
+            )}
 
             {/* Camera scanner */}
             {!cameraActive ? (

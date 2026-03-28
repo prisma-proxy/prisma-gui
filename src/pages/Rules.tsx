@@ -197,7 +197,7 @@ const ProviderRow = React.memo(function ProviderRow({
 
 export default function Rules() {
   const { t } = useTranslation();
-  const { isMobile } = usePlatform();
+  const { isMobile, isDesktop } = usePlatform();
   const rules = useRules((s) => s.rules);
   const addRule = useRules((s) => s.add);
   const addMany = useRules((s) => s.addMany);
@@ -463,12 +463,16 @@ export default function Rules() {
           <Button size="sm" variant="ghost" onClick={() => setPresetsOpen(true)} title={t("rules.presets")}>
             <Layers size={14} />
           </Button>
-          <Button size="sm" variant="ghost" onClick={handleExportRules} title={t("rules.export")}>
-            <Download size={14} />
-          </Button>
-          <Button size="sm" variant="ghost" onClick={handleImportRules} title={t("rules.import")}>
-            <Upload size={14} />
-          </Button>
+          {isDesktop && (
+            <Button size="sm" variant="ghost" onClick={handleExportRules} title={t("rules.export")}>
+              <Download size={14} />
+            </Button>
+          )}
+          {isDesktop && (
+            <Button size="sm" variant="ghost" onClick={handleImportRules} title={t("rules.import")}>
+              <Upload size={14} />
+            </Button>
+          )}
           <Button size="sm" onClick={() => setOpen(true)}>
             <Plus /> {t("rules.addRule")}
           </Button>

@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import { useStore } from "@/store";
+import { usePlatform } from "@/hooks/usePlatform";
 import type { LogEntry } from "@/lib/types";
 import { cn, downloadText } from "@/lib/utils";
 
@@ -39,6 +40,7 @@ function levelBadge(level: LogEntry["level"]) {
 
 export default function Logs() {
   const { t } = useTranslation();
+  const { isDesktop } = usePlatform();
   const logs = useStore((s) => s.logs);
   const clearLogs = useStore((s) => s.clearLogs);
   const [search,      setSearch]      = useState("");
@@ -117,15 +119,17 @@ export default function Logs() {
         >
           {paused ? <Play size={14} /> : <Pause size={14} />}
         </Button>
-        <Button
-          size="icon"
-          variant="ghost"
-          className="h-8 w-8 shrink-0"
-          onClick={handleExport}
-          title={t("logs.export")}
-        >
-          <Download size={14} />
-        </Button>
+        {isDesktop && (
+          <Button
+            size="icon"
+            variant="ghost"
+            className="h-8 w-8 shrink-0"
+            onClick={handleExport}
+            title={t("logs.export")}
+          >
+            <Download size={14} />
+          </Button>
+        )}
         <Button
           size="icon"
           variant="ghost"

@@ -22,9 +22,11 @@ import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { useDataUsage } from "@/store/dataUsage";
 import { syncStatus } from "@/hooks/useStatusSync";
 import { MODE_SOCKS5, MODE_SYSTEM_PROXY, MODE_TUN, MODE_PER_APP } from "@/lib/types";
+import { usePlatform } from "@/hooks/usePlatform";
 
 export default function Home() {
   const { t } = useTranslation();
+  const { isDesktop } = usePlatform();
   const connected = useStore((s) => s.connected);
   const connecting = useStore((s) => s.connecting);
   const stats = useStore((s) => s.stats);
@@ -227,24 +229,26 @@ export default function Home() {
         </div>
       )}
 
-      {/* Proxy modes */}
-      <div className="space-y-1">
-        <p className="text-xs text-muted-foreground">{t("home.proxyModes")}</p>
-        <div className="flex items-center gap-2">
-          <Badge variant="secondary" className="text-xs">{t("home.modeProxyOnly")}</Badge>
-          <ToggleGroup
-            type="multiple"
-            value={modeValues}
-            onValueChange={onModeChange}
-            variant="outline"
-            size="sm"
-          >
-            <ToggleGroupItem value="sys">{t("home.modeSystem")}</ToggleGroupItem>
-            <ToggleGroupItem value="tun">TUN</ToggleGroupItem>
-            <ToggleGroupItem value="app">{t("home.modePerApp")}</ToggleGroupItem>
-          </ToggleGroup>
+      {/* Proxy modes — desktop only (mobile uses VPN toggle in Settings) */}
+      {isDesktop && (
+        <div className="space-y-1">
+          <p className="text-xs text-muted-foreground">{t("home.proxyModes")}</p>
+          <div className="flex items-center gap-2">
+            <Badge variant="secondary" className="text-xs">{t("home.modeProxyOnly")}</Badge>
+            <ToggleGroup
+              type="multiple"
+              value={modeValues}
+              onValueChange={onModeChange}
+              variant="outline"
+              size="sm"
+            >
+              <ToggleGroupItem value="sys">{t("home.modeSystem")}</ToggleGroupItem>
+              <ToggleGroupItem value="tun">TUN</ToggleGroupItem>
+              <ToggleGroupItem value="app">{t("home.modePerApp")}</ToggleGroupItem>
+            </ToggleGroup>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Connect/Disconnect */}
       <div className="flex gap-2">
@@ -262,7 +266,7 @@ export default function Home() {
             <><Wifi /> {t("home.connect")}</>
           )}
         </Button>
-        {connected && (
+        {connected && isDesktop && (
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>

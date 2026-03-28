@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/table";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import { useAnalytics } from "@/store/analytics";
+import { usePlatform } from "@/hooks/usePlatform";
 import { fmtBytes } from "@/lib/format";
 import { downloadText } from "@/lib/utils";
 
@@ -21,6 +22,7 @@ type TrendRange = 7 | 30;
 
 export default function Analytics() {
   const { t } = useTranslation();
+  const { isDesktop } = usePlatform();
   const domains = useAnalytics((s) => s.domains);
   const ruleStats = useAnalytics((s) => s.rule_stats);
   const getTopDomains = useAnalytics((s) => s.getTopDomains);
@@ -90,9 +92,11 @@ export default function Analytics() {
       <div className="flex items-center justify-between">
         <h1 className="font-bold text-lg">{t("analytics.title")}</h1>
         <div className="flex gap-1">
-          <Button size="sm" variant="ghost" onClick={handleExport} title={t("analytics.exportCsv")}>
-            <Download size={14} />
-          </Button>
+          {isDesktop && (
+            <Button size="sm" variant="ghost" onClick={handleExport} title={t("analytics.exportCsv")}>
+              <Download size={14} />
+            </Button>
+          )}
           <Button size="sm" variant="ghost" onClick={() => setConfirmOpen(true)} title={t("analytics.clearAll")}>
             <Trash2 size={14} />
           </Button>

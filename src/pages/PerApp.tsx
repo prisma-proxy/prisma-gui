@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { usePlatform } from "@/hooks/usePlatform";
 import { useTranslation } from "react-i18next";
 import {
   Search, RefreshCw, AppWindow, Shield, ShieldAlert, Plus, Trash2,
@@ -124,7 +125,17 @@ function AppsList({ loading, filteredApps, hasRunningApps, selectedApps, onToggl
 
 export default function PerApp() {
   const { t } = useTranslation();
+  const { isMobile } = usePlatform();
   const perApp = usePerApp();
+
+  // Per-app proxy is desktop-only — mobile OS handles per-app VPN natively
+  if (isMobile) {
+    return (
+      <div className="flex items-center justify-center h-full text-muted-foreground">
+        <p>{t("perApp.desktopOnly", "Per-app proxy is only available on desktop.")}</p>
+      </div>
+    );
+  }
 
   const [runningApps, setRunningApps] = useState<string[]>([]);
   const [appsLoading, setAppsLoading] = useState(false);
