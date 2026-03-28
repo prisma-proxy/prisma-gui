@@ -90,12 +90,25 @@ pub fn start_vpn_service(
                 .unwrap_or_else(|| "Failed to start VPN".into()));
         }
         // Poll for the TUN fd in a background thread.
-        // Use a helper fn so the closure only captures Send types.
-        let vpn_poll = app
-            .state::<tauri_plugin_vpn::Vpn<tauri::Wry>>()
-            .inner()
-            .clone();
-        spawn_tun_fd_poller(vpn_poll, _client);
+        // Convert raw pointer to usize (which is Send) to cross the thread boundary.
+        // Pass the AppHandle (which is Clone + Send) to access state in the thread.
+        let client_addr = _client as usize;
+        let handle = app.clone();
+        std::thread::spawn(move || {
+            let vpn = handle.state::<tauri_plugin_vpn::Vpn<tauri::Wry>>();
+            for _ in 0..100 {
+                std::thread::sleep(std::time::Duration::from_millis(100));
+                if let Ok(r) = vpn.get_tun_fd() {
+                    if r.fd >= 0 {
+                        tracing::info!(fd = r.fd, "Got TUN fd from VPN service");
+                        let client = client_addr as *mut prisma_ffi::PrismaClient;
+                        unsafe { prisma_ffi::prisma_set_tun_fd(client, r.fd) };
+                        return;
+                    }
+                }
+            }
+            tracing::warn!("Timed out waiting for TUN fd from VPN service");
+        });
         Ok(())
     }
     #[cfg(not(mobile))]
@@ -205,34 +218,4 @@ pub fn on_memory_warning(state: tauri::State<AppState>) -> Result<(), String> {
     } else {
         Err(format!("prisma_on_memory_warning error {rc}"))
     }
-}
-
-// ── Helpers ─────────────────────────────────────────────────────────────────
-
-/// Poll for TUN fd from the VPN service in a background thread.
-///
-/// Extracted as a function so the closure only captures Send-safe types
-/// (the raw `*mut PrismaClient` is wrapped in a Send newtype).
-#[cfg(mobile)]
-fn spawn_tun_fd_poller(
-    vpn: tauri_plugin_vpn::Vpn<tauri::Wry>,
-    client: *mut prisma_ffi::PrismaClient,
-) {
-    struct SendPtr(*mut prisma_ffi::PrismaClient);
-    unsafe impl Send for SendPtr {}
-    let ptr = SendPtr(client);
-
-    std::thread::spawn(move || {
-        for _ in 0..100 {
-            std::thread::sleep(std::time::Duration::from_millis(100));
-            if let Ok(r) = vpn.get_tun_fd() {
-                if r.fd >= 0 {
-                    tracing::info!(fd = r.fd, "Got TUN fd from VPN service");
-                    unsafe { prisma_ffi::prisma_set_tun_fd(ptr.0, r.fd) };
-                    return;
-                }
-            }
-        }
-        tracing::warn!("Timed out waiting for TUN fd from VPN service");
-    });
 }
