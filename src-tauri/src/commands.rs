@@ -202,13 +202,21 @@ pub async fn check_update(proxy_port: Option<u16>) -> Result<Option<serde_json::
 /// Asset name substring to match for this platform's GUI installer.
 fn gui_asset_hint() -> &'static str {
     #[cfg(target_os = "windows")]
-    { "windows-x64-setup.exe" }
+    {
+        "windows-x64-setup.exe"
+    }
     #[cfg(target_os = "macos")]
-    { "macos-universal.dmg" }
+    {
+        "macos-universal.dmg"
+    }
     #[cfg(target_os = "linux")]
-    { "linux-amd64.AppImage" }
+    {
+        "linux-amd64.AppImage"
+    }
     #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
-    { "gui" }
+    {
+        "gui"
+    }
 }
 
 #[tauri::command]
