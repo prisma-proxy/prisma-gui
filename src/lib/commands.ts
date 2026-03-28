@@ -142,6 +142,12 @@ export const api = {
   requestVpnPermission: () =>
     invoke<boolean>("request_vpn_permission"),
 
+  startVpnService: () =>
+    invoke<void>("start_vpn_service"),
+
+  stopVpnService: () =>
+    invoke<void>("stop_vpn_service"),
+
   getNetworkType: () =>
     invoke<number>("get_network_type"),
 

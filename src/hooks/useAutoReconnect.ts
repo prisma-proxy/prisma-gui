@@ -7,6 +7,7 @@ import { useRules } from "../store/rules";
 import { useRuleProviders } from "../store/ruleProviders";
 import { api } from "../lib/commands";
 import { mergeSettingsIntoConfig } from "../lib/buildConfig";
+import { getEffectiveModes, startMobileVpnIfNeeded, stopMobileVpnIfNeeded } from "../lib/mobile";
 
 export function useAutoReconnect() {
   const connected = useStore((s) => s.connected);
@@ -15,7 +16,9 @@ export function useAutoReconnect() {
   const activeProfileIdx = useStore((s) => s.activeProfileIdx);
   const profiles = useStore((s) => s.profiles);
   const proxyModes = useSettings((s) => s.proxyModes);
-  const { autoReconnect, reconnectDelaySecs, reconnectMaxAttempts } = useSettings();
+  const autoReconnect = useSettings((s) => s.autoReconnect);
+  const reconnectDelaySecs = useSettings((s) => s.reconnectDelaySecs);
+  const reconnectMaxAttempts = useSettings((s) => s.reconnectMaxAttempts);
   const attemptsRef = useRef(0);
 
   // Reset counter on successful connect
@@ -37,6 +40,10 @@ export function useAutoReconnect() {
       if (!profile) return;
       try {
         notify.info(i18n.t("notifications.autoReconnecting", { attempt: attemptsRef.current }));
+
+        const modes = getEffectiveModes();
+        await startMobileVpnIfNeeded(modes);
+
         const enabledProviders = useRuleProviders.getState().providers
           .filter((p) => p.enabled)
           .map((p) => ({ name: p.name, url: p.url, behavior: p.behavior, action: p.action }));
@@ -45,14 +52,15 @@ export function useAutoReconnect() {
           useSettings.getState(),
           useRules.getState().rules,
           enabledProviders.length > 0 ? enabledProviders : undefined,
+          modes,
         );
         useStore.getState().setConnectStartTime(Date.now());
-        await api.connect(JSON.stringify(config), proxyModes);
+        await api.connect(JSON.stringify(config), modes);
         api.setActiveProfileId(profile.id).catch(() => {});
       } catch (e) {
         console.warn("Auto-reconnect failed:", e);
         useStore.getState().setConnectStartTime(null);
-        // Next disconnect event will trigger another attempt
+        stopMobileVpnIfNeeded();
       }
     }, delay);
 

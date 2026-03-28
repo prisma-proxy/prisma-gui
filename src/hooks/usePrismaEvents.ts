@@ -9,6 +9,7 @@ import { useSettings } from "../store/settings";
 import { api } from "../lib/commands";
 import { MODE_SYSTEM_PROXY } from "../lib/types";
 import type { Stats, LogEntry, SpeedTestResult, UpdateInfo } from "../lib/types";
+import { isDesktopSync } from "../store/platform";
 import { useDataUsage } from "../store/dataUsage";
 import { parseLogForConnection, useConnections } from "../store/connections";
 import { useAnalytics } from "../store/analytics";
@@ -97,8 +98,8 @@ export function usePrismaEvents() {
                 store.setConnectStartTime(null);
               }
             }
-            // Set OS-level system proxy if MODE_SYSTEM_PROXY is active
-            if (useSettings.getState().proxyModes & MODE_SYSTEM_PROXY) {
+            // Set OS-level system proxy if MODE_SYSTEM_PROXY is active (desktop only)
+            if (isDesktopSync() && (useSettings.getState().proxyModes & MODE_SYSTEM_PROXY)) {
               const httpPort = useSettings.getState().httpPort;
               if (httpPort && httpPort > 0) {
                 setTimeout(() => {
@@ -108,8 +109,8 @@ export function usePrismaEvents() {
                 notify.warning(i18n.t("notifications.systemProxyNoHttpPort"));
               }
             }
-            // Force tray menu rebuild so Connect/Disconnect label is correct
-            api.refreshTrayProfiles().catch(() => {});
+            // Force tray menu rebuild (desktop only)
+            if (isDesktopSync()) api.refreshTrayProfiles().catch(() => {});
             notify.success(i18n.t("notifications.connected"));
           } else if (data.status === "connecting") {
             store.setManualDisconnect(false);
@@ -146,16 +147,16 @@ export function usePrismaEvents() {
                 });
               }
             }
-            // Clear OS-level system proxy on disconnect
-            api.clearSystemProxy().catch(() => {});
+            // Clear OS-level system proxy on disconnect (desktop only)
+            if (isDesktopSync()) api.clearSystemProxy().catch(() => {});
             // Mark all active connections as closed so the user can see what
             // was connected before disconnect, then clear stale logs.
             useConnections.getState().closeAllActive();
             useConnections.getState().clearAll();
             store.clearLogs();
             store.setConnected(false);
-            // Force tray menu rebuild so Connect/Disconnect label is correct
-            api.refreshTrayProfiles().catch(() => {});
+            // Force tray menu rebuild (desktop only)
+            if (isDesktopSync()) api.refreshTrayProfiles().catch(() => {});
           }
           break;
 
@@ -201,20 +202,22 @@ export function usePrismaEvents() {
                   }
                 }
               }
-              // Throttle tray updates to every Nth stats tick
-              trayUpdateCounter++;
-              if (trayUpdateCounter >= TRAY_UPDATE_EVERY) {
-                trayUpdateCounter = 0;
-                const profileName = activeProf?.name ?? "";
-                api.updateTrayStats(
-                  s.speed_up_bps,
-                  s.speed_down_bps,
-                  s.bytes_up,
-                  s.bytes_down,
-                  useConnections.getState().activeCount,
-                  profileName,
-                  s.uptime_secs,
-                ).catch(() => {});
+              // Throttle tray updates to every Nth stats tick (desktop only)
+              if (isDesktopSync()) {
+                trayUpdateCounter++;
+                if (trayUpdateCounter >= TRAY_UPDATE_EVERY) {
+                  trayUpdateCounter = 0;
+                  const profileName = activeProf?.name ?? "";
+                  api.updateTrayStats(
+                    s.speed_up_bps,
+                    s.speed_down_bps,
+                    s.bytes_up,
+                    s.bytes_down,
+                    useConnections.getState().activeCount,
+                    profileName,
+                    s.uptime_secs,
+                  ).catch(() => {});
+                }
               }
             });
           }
@@ -254,7 +257,7 @@ export function usePrismaEvents() {
                   recentDirty = true;
                 }
               }
-              if (recentDirty) {
+              if (recentDirty && isDesktopSync()) {
                 recentDirty = false;
                 api.updateTrayRecent([...recentDestinations]).catch(() => {});
               }

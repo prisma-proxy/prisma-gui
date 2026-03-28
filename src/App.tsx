@@ -10,6 +10,7 @@ import { useConfigReload } from "./hooks/useConfigReload";
 import { useKeyboardShortcuts } from "./hooks/useKeyboardShortcuts";
 import { useClipboardImport } from "./hooks/useClipboardImport";
 import { useMobileLifecycle } from "./hooks/useMobileLifecycle";
+import { useMobileDefaults } from "./hooks/useMobileDefaults";
 import Sidebar from "./components/Sidebar";
 import BottomNav from "./components/BottomNav";
 import QuickConnectFab from "./components/QuickConnectFab";
@@ -37,6 +38,7 @@ export default function App() {
   useKeyboardShortcuts();
   useClipboardImport();
   useMobileLifecycle();
+  useMobileDefaults();
   const { isMobile } = usePlatform();
 
   return (

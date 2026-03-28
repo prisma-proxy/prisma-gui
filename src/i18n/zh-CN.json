@@ -402,6 +402,7 @@
     "allowLanDesc": "允许网络上的其他设备使用此代理",
     "emergencyDisconnect": "紧急断开",
     "emergencyDisconnectDesc": "立即强制断开 VPN 连接",
+    "reconnectingForMode": "正在使用新连接模式重新连接...",
     "autoConnectWifi": "WiFi 自动连接",
     "autoConnectWifiDesc": "检测到 WiFi 网络时自动连接"
   },

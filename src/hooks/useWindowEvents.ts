@@ -10,6 +10,8 @@ import { notify } from "../store/notifications";
 import { api } from "../lib/commands";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { useRuleProviders } from "../store/ruleProviders";
+import { isDesktopSync } from "../store/platform";
+import { MODE_TUN, MODE_PER_APP } from "../lib/types";
 
 export function useWindowEvents() {
   const minimizeToTray = useSettings((s) => s.minimizeToTray);
@@ -29,15 +31,16 @@ export function useWindowEvents() {
     return () => { unlisten.then((f) => f()); };
   }, [minimizeToTray]);
 
-  // Sync socks5 port to tray on init and change
+  // Sync socks5 port to tray on init and change (desktop only)
   useEffect(() => {
-    api.setTrayPort(socks5Port).catch(() => {});
+    if (isDesktopSync()) api.setTrayPort(socks5Port).catch(() => {});
   }, [socks5Port]);
 
-  // Sync toggle states to tray on init
+  // Sync toggle states to tray on init (desktop only)
   useEffect(() => {
+    if (!isDesktopSync()) return;
     const s = useSettings.getState();
-    api.syncTrayToggles(s.startOnBoot, s.allowLan, (s.proxyModes & 0x04) !== 0).catch(() => {});
+    api.syncTrayToggles(s.startOnBoot, s.allowLan, (s.proxyModes & MODE_TUN) !== 0).catch(() => {});
   }, []);
 
   // Handle tray "Connect/Disconnect" toggle
@@ -152,7 +155,7 @@ export function useWindowEvents() {
           case "tunEnabled": {
             // Toggle MODE_TUN in proxyModes (TUN controlled via mode flags, not separate setting)
             const current = settings.proxyModes;
-            const newModes = value ? (current | 0x04) : (current & ~0x04 & ~0x08); // also clear PER_APP if TUN off
+            const newModes = value ? (current | MODE_TUN) : (current & ~MODE_TUN & ~MODE_PER_APP); // also clear PER_APP if TUN off
             settings.setProxyModes(newModes);
             break;
           }

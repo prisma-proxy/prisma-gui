@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Wifi, Signal, Battery, ShieldCheck, Router, Shield, ShieldOff } from "lucide-react";
+import { Wifi, Signal, Battery, ShieldCheck, Router, Shield, ShieldOff, RefreshCw } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -20,15 +20,23 @@ export default function MobileSection() {
   const battery = useBattery();
   const { connectionMode, autoConnectWifi, patch } = useSettings();
   const connected = useStore((s) => s.connected);
-  const { disconnect } = useConnection();
+  const { disconnect, toggle } = useConnection();
   const [vpnPermission, setVpnPermission] = useState<boolean | null>(null);
+  const [checkingPermission, setCheckingPermission] = useState(false);
 
   const [rustBatteryLevel, setRustBatteryLevel] = useState(-1);
   const [rustBatteryCharging, setRustBatteryCharging] = useState(false);
 
+  // Check VPN permission when VPN mode is selected
   useEffect(() => {
     if (connectionMode === "vpn") {
-      api.checkVpnPermission().then(setVpnPermission).catch(() => {});
+      setCheckingPermission(true);
+      api.checkVpnPermission()
+        .then(setVpnPermission)
+        .catch(() => setVpnPermission(null))
+        .finally(() => setCheckingPermission(false));
+    } else {
+      setVpnPermission(null);
     }
   }, [connectionMode]);
 
@@ -43,6 +51,20 @@ export default function MobileSection() {
 
   const batteryLevel = battery.level >= 0 ? battery.level : rustBatteryLevel;
   const batteryCharging = battery.level >= 0 ? battery.charging : rustBatteryCharging;
+
+  const handleModeChange = (v: string) => {
+    if (!v) return;
+    const newMode = v as "proxy" | "vpn";
+    if (connected) {
+      // Switching mode while connected — auto-reconnect
+      notify.info(t("settings.reconnectingForMode"));
+      patch({ connectionMode: newMode });
+      // Brief delay then reconnect with new mode
+      setTimeout(() => toggle(), 200);
+    } else {
+      patch({ connectionMode: newMode });
+    }
+  };
 
   return (
     <div className="space-y-4">
@@ -92,7 +114,7 @@ export default function MobileSection() {
         <ToggleGroup
           type="single"
           value={connectionMode}
-          onValueChange={(v) => v && patch({ connectionMode: v as "proxy" | "vpn" })}
+          onValueChange={handleModeChange}
           className="justify-start"
           size="sm"
           variant="outline"
@@ -121,19 +143,22 @@ export default function MobileSection() {
               <p className="text-xs text-muted-foreground">{t("settings.vpnPermissionDesc")}</p>
             </div>
           </div>
-          {vpnPermission === true ? (
+          {checkingPermission ? (
+            <RefreshCw size={14} className="animate-spin text-muted-foreground" />
+          ) : vpnPermission === true ? (
             <span className="text-xs text-green-500">{t("settings.vpnGranted")}</span>
           ) : vpnPermission === false ? (
             <Button variant="outline" size="sm" onClick={async () => {
               try {
                 const ok = await api.requestVpnPermission();
                 setVpnPermission(ok);
+                if (ok) notify.success(t("settings.vpnGranted"));
               } catch (e) { notify.error(String(e)); }
             }}>
               {t("settings.vpnRequest")}
             </Button>
           ) : (
-            <span className="text-xs text-muted-foreground">{t("common.loading")}</span>
+            <span className="text-xs text-muted-foreground">—</span>
           )}
         </div>
       )}

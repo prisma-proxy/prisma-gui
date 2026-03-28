@@ -163,6 +163,8 @@ pub fn run() {
             // ── Mobile commands (compile on all targets) ──────────────
             mobile::check_vpn_permission,
             mobile::request_vpn_permission,
+            mobile::start_vpn_service,
+            mobile::stop_vpn_service,
             mobile::get_network_type,
             mobile::on_network_change,
             mobile::get_battery_status,

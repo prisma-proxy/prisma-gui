@@ -5,7 +5,9 @@ import { api } from "@/lib/commands";
 import { useRules } from "@/store/rules";
 import { useRuleProviders } from "@/store/ruleProviders";
 import { useSettings } from "@/store/settings";
+import { isMobileSync } from "@/store/platform";
 import { mergeSettingsIntoConfig } from "@/lib/buildConfig";
+import { getEffectiveModes, startMobileVpnIfNeeded, stopMobileVpnIfNeeded } from "@/lib/mobile";
 import type { Profile } from "@/lib/types";
 import { MODE_SOCKS5, MODE_SYSTEM_PROXY, MODE_TUN } from "@/lib/types";
 
@@ -17,15 +19,34 @@ export function useConnection() {
   const setProxyModes = useSettings((s) => s.setProxyModes);
 
   const connectTo = useCallback(async (profile: Profile, modes: number): Promise<boolean> => {
-    // TUN mode requires admin privileges — check before connecting
+    // TUN mode requires platform-specific preparation
     if ((modes & MODE_TUN) !== 0) {
-      try {
-        const elevated = await api.checkElevation();
-        if (!elevated) {
-          notify.warning("TUN mode requires administrator privileges. Please restart the app as administrator.");
+      if (isMobileSync()) {
+        // Mobile VPN flow: check permission → start VPN service → connect
+        try {
+          const hasPermission = await api.checkVpnPermission();
+          if (!hasPermission) {
+            const granted = await api.requestVpnPermission();
+            if (!granted) {
+              notify.warning("VPN permission is required. Please grant it in system settings.");
+              return false;
+            }
+          }
+          await startMobileVpnIfNeeded(modes);
+        } catch (e) {
+          notify.error(`VPN service error: ${String(e)}`);
           return false;
         }
-      } catch { /* checkElevation not available on this platform */ }
+      } else {
+        // Desktop: TUN mode requires admin privileges
+        try {
+          const elevated = await api.checkElevation();
+          if (!elevated) {
+            notify.warning("TUN mode requires administrator privileges. Please restart the app as administrator.");
+            return false;
+          }
+        } catch { /* checkElevation not available on this platform */ }
+      }
     }
 
     const profiles = useStore.getState().profiles;
@@ -58,9 +79,9 @@ export function useConnection() {
     } catch (e) {
       notify.error(String(e));
       setConnectStartTime(null);
-      // Clear connecting state so the UI isn't stuck on "Connecting..."
-      // when the backend rejects the connect call.
       setConnected(false);
+      // If we started VPN service but connect failed, stop it
+      if ((modes & MODE_TUN) !== 0) stopMobileVpnIfNeeded();
       return false;
     }
   }, [setActiveProfileIdx, setConnectStartTime, setConnected]);
@@ -68,20 +89,17 @@ export function useConnection() {
   const disconnect = useCallback(async () => {
     try {
       setManualDisconnect(true);
+      // Stop VPN service if running on mobile in VPN mode
+      stopMobileVpnIfNeeded();
       await api.disconnect();
     } catch (e) {
       notify.error(String(e));
     }
-    // Don't update UI state here — the backend fires "status_changed:disconnected"
-    // AFTER the client fully shuts down (services stopped, system proxy cleared).
-    // usePrismaEvents handles all cleanup when that event arrives.
   }, [setManualDisconnect]);
 
   const switchTo = useCallback(async (profile: Profile, modes: number) => {
     setManualDisconnect(true);
     try { await api.disconnect(); } catch {}
-    // Brief delay so the disconnect event propagates before we clear the
-    // manualDisconnect flag — prevents useAutoReconnect from firing.
     await new Promise(r => setTimeout(r, 100));
     setManualDisconnect(false);
     await connectTo(profile, modes);
@@ -95,7 +113,11 @@ export function useConnection() {
       const profile = store.activeProfileIdx !== null
         ? store.profiles[store.activeProfileIdx]
         : store.profiles[0];
-      if (profile) await connectTo(profile, useSettings.getState().proxyModes);
+      if (!profile) return;
+
+      const modes = getEffectiveModes();
+
+      await connectTo(profile, modes);
     }
   }, [connectTo, disconnect]);
 
@@ -108,8 +130,6 @@ export function useConnection() {
         ? store.profiles[store.activeProfileIdx]
         : store.profiles[0];
       if (profile) {
-        // Update store first so the status_changed event handler reads MODE_SOCKS5
-        // and does not call api.setSystemProxy() when connected event fires.
         setProxyModes(MODE_SOCKS5);
         await connectTo(profile, MODE_SOCKS5);
       }

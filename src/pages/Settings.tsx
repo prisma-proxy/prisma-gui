@@ -3,6 +3,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { usePlatform } from "@/hooks/usePlatform";
 import { useFeatures } from "@/lib/features";
+import { useSettings } from "@/store/settings";
 import AppearanceSection from "./settings/AppearanceSection";
 import GeneralSection from "./settings/GeneralSection";
 import ProxyPortsSection from "./settings/ProxyPortsSection";
@@ -21,6 +22,10 @@ export default function Settings() {
   const { t } = useTranslation();
   const { isMobile } = usePlatform();
   const features = useFeatures();
+  const connectionMode = useSettings((s) => s.connectionMode);
+
+  // On mobile in VPN mode, proxy ports are irrelevant (the OS routes all traffic)
+  const showProxyPorts = !isMobile || connectionMode === "proxy";
 
   return (
     <ScrollArea className="h-full">
@@ -46,24 +51,27 @@ export default function Settings() {
           </>
         )}
 
-        <ProxyPortsSection />
-        <Separator />
-
-        <DnsSection />
-        <Separator />
-
-        <LoggingSection />
-        <Separator />
-
-        {!isMobile && (
+        {/* Hide proxy ports on mobile in VPN mode */}
+        {showProxyPorts && (
           <>
-            <TunSection />
+            <ProxyPortsSection />
             <Separator />
           </>
         )}
-        <RoutingSection />
 
-        <Separator />
+        {!isMobile && (
+          <>
+            <DnsSection />
+            <Separator />
+            <LoggingSection />
+            <Separator />
+            <TunSection />
+            <Separator />
+            <RoutingSection />
+            <Separator />
+          </>
+        )}
+
         <AutoReconnectSection />
 
         <Separator />
