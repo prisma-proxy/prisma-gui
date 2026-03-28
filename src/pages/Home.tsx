@@ -105,8 +105,18 @@ export default function Home() {
   }, [proxyModes]);
 
   const onModeChange = useCallback((vals: string[]) => {
-    // Per-App requires TUN — auto-enable TUN if Per-App is toggled on
-    if (vals.includes("app") && !vals.includes("tun")) vals.push("tun");
+    const addedSys = vals.includes("sys") && !modeValues.includes("sys");
+    const addedTun = vals.includes("tun") && !modeValues.includes("tun");
+
+    // System Proxy and TUN are mutually exclusive
+    if (addedSys) vals = vals.filter(v => v !== "tun" && v !== "app");
+    if (addedTun) vals = vals.filter(v => v !== "sys");
+
+    // Per-App requires TUN — auto-enable TUN, which also excludes System Proxy
+    if (vals.includes("app") && !vals.includes("tun")) {
+      vals.push("tun");
+      vals = vals.filter(v => v !== "sys");
+    }
     // Disabling TUN also disables Per-App
     if (!vals.includes("tun")) vals = vals.filter(v => v !== "app");
 
@@ -116,7 +126,7 @@ export default function Home() {
     if (vals.includes("app")) flags |= MODE_PER_APP;
     const oldModes = useSettings.getState().proxyModes;
     switchProxyMode(oldModes, flags);
-  }, [switchProxyMode]);
+  }, [switchProxyMode, modeValues]);
 
   const activeProfile = activeProfileIdx !== null ? profiles[activeProfileIdx] : profiles[0];
   const latencyColor = latency === null ? "text-muted-foreground" : latency < 100 ? "text-green-500" : latency < 300 ? "text-yellow-500" : "text-red-500";
