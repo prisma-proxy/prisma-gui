@@ -35,6 +35,7 @@
     "qualityFair": "一般",
     "qualityPoor": "较差",
     "latency": "延迟",
+    "noServer": "未选择服务器",
     "copyPacUrl": "复制 PAC 地址",
     "pacUrlCopied": "PAC 地址已复制到剪贴板"
   },
@@ -397,7 +398,11 @@
     "configExported": "配置已导出（设置 + 规则 + 提供者）",
     "configImported": "配置已导入",
     "allowLan": "允许局域网连接",
-    "allowLanDesc": "允许网络上的其他设备使用此代理"
+    "allowLanDesc": "允许网络上的其他设备使用此代理",
+    "emergencyDisconnect": "紧急断开",
+    "emergencyDisconnectDesc": "立即强制断开 VPN 连接",
+    "autoConnectWifi": "WiFi 自动连接",
+    "autoConnectWifiDesc": "检测到 WiFi 网络时自动连接"
   },
   "wizard": {
     "newProfile": "新建配置",

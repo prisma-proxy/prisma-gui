@@ -250,6 +250,17 @@ export default function Home() {
         </div>
       )}
 
+      {/* Mobile: show current server */}
+      {!isDesktop && connected && (
+        <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/50 rounded-lg px-3 py-2">
+          <Signal size={14} className="shrink-0" />
+          <span className="truncate">{serverAddr || t("home.noServer")}</span>
+          {latency !== null && (
+            <Badge variant="outline" className={`ml-auto text-[10px] ${latencyColor}`}>{latency}ms</Badge>
+          )}
+        </div>
+      )}
+
       {/* Connect/Disconnect */}
       <div className="flex gap-2">
         <Button

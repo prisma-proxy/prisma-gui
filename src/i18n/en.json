@@ -35,6 +35,7 @@
     "qualityFair": "Fair",
     "qualityPoor": "Poor",
     "latency": "Latency",
+    "noServer": "No server selected",
     "copyPacUrl": "Copy PAC URL",
     "pacUrlCopied": "PAC URL copied to clipboard"
   },
@@ -397,7 +398,11 @@
     "configExported": "Config exported (settings + rules + providers)",
     "configImported": "Config imported",
     "allowLan": "Allow LAN Connections",
-    "allowLanDesc": "Allow other devices on the network to use this proxy"
+    "allowLanDesc": "Allow other devices on the network to use this proxy",
+    "emergencyDisconnect": "Emergency Disconnect",
+    "emergencyDisconnectDesc": "Force disconnect the VPN immediately",
+    "autoConnectWifi": "Auto-connect on WiFi",
+    "autoConnectWifiDesc": "Automatically connect when a WiFi network is available"
   },
   "wizard": {
     "newProfile": "New Profile",

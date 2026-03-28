@@ -37,6 +37,7 @@ export default function QuickConnectFab() {
   if (!isMobile) return null;
 
   const handlePress = async () => {
+    if (navigator.vibrate) navigator.vibrate(50);
     setBusy(true);
     try {
       await toggle();

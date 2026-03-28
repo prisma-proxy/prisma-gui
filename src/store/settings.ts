@@ -27,6 +27,7 @@ export interface AppSettings {
   connectionPoolEnabled: boolean;
   connectionMode: "proxy" | "vpn";
   proxyModes: number;           // bitmask: SOCKS5=0x01, SYSTEM_PROXY=0x02, TUN=0x04, PER_APP=0x08
+  autoConnectWifi: boolean;
 }
 
 interface SettingsStore extends AppSettings {
@@ -62,6 +63,7 @@ export const useSettings = create<SettingsStore>()(
       connectionPoolEnabled: false,
       connectionMode: "proxy",
       proxyModes: 0x02, // System proxy by default
+      autoConnectWifi: false,
       patch: (values) => {
         const clamped = { ...values };
         if (clamped.socks5Port !== undefined) {

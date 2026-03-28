@@ -1,10 +1,14 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Wifi, Signal, Battery, ShieldCheck, Router, Shield } from "lucide-react";
+import { Wifi, Signal, Battery, ShieldCheck, Router, Shield, ShieldOff } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
+import { Separator } from "@/components/ui/separator";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { useNetworkStatus } from "@/hooks/useNetworkStatus";
+import { useConnection } from "@/hooks/useConnection";
+import { useStore } from "@/store";
 import { useBattery } from "@/hooks/useBattery";
 import { useSettings } from "@/store/settings";
 import { api } from "@/lib/commands";
@@ -14,7 +18,9 @@ export default function MobileSection() {
   const { t } = useTranslation();
   const { label: networkLabel } = useNetworkStatus();
   const battery = useBattery();
-  const { connectionMode, patch } = useSettings();
+  const { connectionMode, autoConnectWifi, patch } = useSettings();
+  const connected = useStore((s) => s.connected);
+  const { disconnect } = useConnection();
   const [vpnPermission, setVpnPermission] = useState<boolean | null>(null);
 
   const [rustBatteryLevel, setRustBatteryLevel] = useState(-1);
@@ -41,6 +47,13 @@ export default function MobileSection() {
   return (
     <div className="space-y-4">
       <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{t("settings.mobile")}</p>
+
+      {/* Emergency disconnect */}
+      {connected && (
+        <Button variant="destructive" className="w-full" onClick={() => disconnect()}>
+          <ShieldOff size={16} /> {t("settings.emergencyDisconnect")}
+        </Button>
+      )}
 
       {/* Network status */}
       <div className="flex items-center justify-between">
@@ -124,6 +137,17 @@ export default function MobileSection() {
           )}
         </div>
       )}
+
+      <Separator />
+
+      {/* Auto-connect on WiFi */}
+      <div className="flex items-center justify-between">
+        <div className="space-y-0.5">
+          <Label>{t("settings.autoConnectWifi")}</Label>
+          <p className="text-xs text-muted-foreground">{t("settings.autoConnectWifiDesc")}</p>
+        </div>
+        <Switch checked={autoConnectWifi} onCheckedChange={(v) => patch({ autoConnectWifi: v })} />
+      </div>
     </div>
   );
 }
