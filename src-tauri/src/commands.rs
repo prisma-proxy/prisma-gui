@@ -179,14 +179,19 @@ pub fn clear_system_proxy() -> Result<(), String> {
 
 // ── auto-update ───────────────────────────────────────────────────────────────
 
+/// GUI's own version (from Cargo.toml, independent of prisma-core).
+const GUI_VERSION: &str = env!("CARGO_PKG_VERSION");
+
 #[tauri::command]
 pub async fn check_update(proxy_port: Option<u16>) -> Result<Option<serde_json::Value>, String> {
     let port = proxy_port.unwrap_or(0);
     let result = tokio::task::spawn_blocking(move || {
-        prisma_core::auto_update::check_repo_with_proxy(
+        // Use the GUI's own version for comparison, not prisma-core's
+        prisma_core::auto_update::check_repo_with_version(
             prisma_core::auto_update::GUI_RELEASES_API,
             Some(gui_asset_hint()),
             port,
+            GUI_VERSION,
         )
     })
     .await
