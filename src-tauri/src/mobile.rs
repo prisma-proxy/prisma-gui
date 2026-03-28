@@ -95,15 +95,17 @@ pub fn start_vpn_service(
             .state::<tauri_plugin_vpn::Vpn<tauri::Wry>>()
             .inner()
             .clone();
-        let client_ptr = _client;
+        // Wrap raw pointer in a Send-safe wrapper for the background thread.
+        struct SendPtr(*mut prisma_ffi::PrismaClient);
+        unsafe impl Send for SendPtr {}
+        let ptr = SendPtr(_client);
         std::thread::spawn(move || {
             for _ in 0..100 {
-                // 10 seconds total (100 * 100ms)
                 std::thread::sleep(std::time::Duration::from_millis(100));
                 if let Ok(r) = vpn_poll.get_tun_fd() {
                     if r.fd >= 0 {
                         tracing::info!(fd = r.fd, "Got TUN fd from VPN service");
-                        unsafe { prisma_ffi::prisma_set_tun_fd(client_ptr, r.fd) };
+                        unsafe { prisma_ffi::prisma_set_tun_fd(ptr.0, r.fd) };
                         return;
                     }
                 }
