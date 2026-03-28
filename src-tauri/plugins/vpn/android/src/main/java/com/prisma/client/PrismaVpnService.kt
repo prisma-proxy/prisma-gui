@@ -1,4 +1,4 @@
-package app.prisma.vpn
+package com.prisma.client
 
 import android.app.Notification
 import android.app.NotificationChannel
@@ -13,12 +13,8 @@ import android.util.Log
 /**
  * Android VPN service that creates a TUN interface and passes the fd to Rust.
  *
- * Flow:
- * 1. VpnPlugin.startService() starts this service with CORE_HANDLE extra
- * 2. onStartCommand() calls startVpn() which builds the TUN interface
- * 3. fd is passed to Rust via JNI (nativeSetTunFd)
- * 4. Rust TUN handler reads/writes packets through the fd
- * 5. Service runs as foreground service with persistent notification
+ * Package: com.prisma.client — must match JNI exports in prisma-ffi/src/android.rs
+ * (Java_com_prisma_client_PrismaVpnService_nativeSetTunFd)
  */
 class PrismaVpnService : VpnService() {
 
@@ -31,6 +27,11 @@ class PrismaVpnService : VpnService() {
         private var vpnInterface: ParcelFileDescriptor? = null
 
         fun isRunning(): Boolean = vpnInterface != null
+
+        init {
+            // Load the native library containing JNI exports (prisma-ffi)
+            System.loadLibrary("prisma_ffi")
+        }
     }
 
     private var coreHandle: Long = 0
@@ -46,7 +47,6 @@ class PrismaVpnService : VpnService() {
             return START_NOT_STICKY
         }
 
-        // Get the PrismaClient handle from the intent
         coreHandle = intent?.getLongExtra("CORE_HANDLE", 0) ?: 0
 
         return try {
@@ -68,7 +68,6 @@ class PrismaVpnService : VpnService() {
             .addDnsServer("8.8.8.8")
             .addDnsServer("8.8.4.4")
 
-        // Allow the proxy server's traffic to bypass the VPN
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
             try {
                 builder.addDisallowedApplication(packageName)
@@ -82,7 +81,6 @@ class PrismaVpnService : VpnService() {
         val fd = pfd.fd
         Log.i(TAG, "TUN interface established, fd=$fd")
 
-        // Pass fd to Rust via JNI
         if (coreHandle != 0L) {
             nativeSetTunFd(coreHandle, fd)
             Log.i(TAG, "TUN fd passed to Rust (handle=$coreHandle)")
@@ -153,5 +151,6 @@ class PrismaVpnService : VpnService() {
     }
 
     // JNI native method — implemented in prisma-ffi/src/android.rs
+    // Name matches: Java_com_prisma_client_PrismaVpnService_nativeSetTunFd
     private external fun nativeSetTunFd(handle: Long, fd: Int): Int
 }

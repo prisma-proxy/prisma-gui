@@ -8,7 +8,7 @@
 
     <application>
         <service
-            android:name="app.prisma.vpn.PrismaVpnService"
+            android:name="com.prisma.client.PrismaVpnService"
             android:exported="false"
             android:permission="android.permission.BIND_VPN_SERVICE"
             android:foregroundServiceType="specialUse">

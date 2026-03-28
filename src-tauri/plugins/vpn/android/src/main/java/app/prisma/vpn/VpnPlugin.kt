@@ -10,6 +10,7 @@ import app.tauri.annotation.TauriPlugin
 import app.tauri.plugin.Invoke
 import app.tauri.plugin.JSObject
 import app.tauri.plugin.Plugin
+import com.prisma.client.PrismaVpnService
 
 private const val VPN_REQUEST_CODE = 24601
 
