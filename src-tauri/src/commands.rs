@@ -204,11 +204,11 @@ pub async fn check_update(proxy_port: Option<u16>) -> Result<Option<serde_json::
     }
 }
 
-/// Asset name substring to match for this platform's GUI installer.
+/// Asset name to match for this platform's GUI binary (portable exe, not installer).
 fn gui_asset_hint() -> &'static str {
     #[cfg(target_os = "windows")]
     {
-        "windows-x64-setup.exe"
+        "prisma-gui-windows-x64.exe"
     }
     #[cfg(target_os = "macos")]
     {

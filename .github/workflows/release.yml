@@ -89,9 +89,21 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force -Path artifacts
           $base = "src-tauri/target/x86_64-pc-windows-msvc/release"
+          # Portable exe (standalone binary for self-update)
           if (Test-Path "$base/prisma-gui.exe") {
             Copy-Item "$base/prisma-gui.exe" "artifacts/prisma-gui-windows-x64.exe"
           }
+          # Portable zip (exe + wintun.dll for TUN mode)
+          if (Test-Path "$base/prisma-gui.exe") {
+            $zipDir = New-Item -ItemType Directory -Force -Path "portable-zip"
+            Copy-Item "$base/prisma-gui.exe" "$zipDir/prisma-gui.exe"
+            $wintun = "src-tauri/resources/wintun.dll"
+            if (Test-Path $wintun) {
+              Copy-Item $wintun "$zipDir/wintun.dll"
+            }
+            Compress-Archive -Path "$zipDir/*" -DestinationPath "artifacts/prisma-gui-windows-x64.zip" -Force
+          }
+          # Installers
           $msi = Get-ChildItem "$base/bundle/msi/*.msi" -ErrorAction SilentlyContinue | Select-Object -First 1
           if ($msi) { Copy-Item $msi.FullName "artifacts/Prisma-windows-x64.msi" }
           $nsis = Get-ChildItem "$base/bundle/nsis/*.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
