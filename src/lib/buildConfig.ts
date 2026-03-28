@@ -244,6 +244,7 @@ export function mergeSettingsIntoConfig(
   settings: import("@/store/settings").AppSettings,
   guiRules: { type: string; match: string; action: string }[],
   ruleProviders?: { name: string; url: string; behavior: string; action: string }[],
+  modes?: number,
 ): Record<string, unknown> {
   const config = { ...profileConfig };
 
@@ -276,8 +277,10 @@ export function mergeSettingsIntoConfig(
     delete config.logging;
   }
 
-  // TUN
-  if (settings.tunEnabled) {
+  // TUN — enable if settings toggle OR MODE_TUN flag is active
+  const MODE_TUN = 0x04;
+  const tunActive = settings.tunEnabled || ((modes ?? settings.proxyModes) & MODE_TUN) !== 0;
+  if (tunActive) {
     const incl = settings.tunIncludeRoutes.split("\n").map(s => s.trim()).filter(Boolean);
     const excl = settings.tunExcludeRoutes.split("\n").map(s => s.trim()).filter(Boolean);
     config.tun = {
@@ -286,6 +289,12 @@ export function mergeSettingsIntoConfig(
       mtu: settings.tunMtu || 1500,
       include_routes: incl.length > 0 ? incl : ["0.0.0.0/0"],
       exclude_routes: excl,
+    };
+    // TUN requires fake DNS to map domains to IPs for smoltcp routing
+    config.dns = {
+      mode: "fake",
+      upstream: settings.dnsUpstream,
+      fake_ip_range: settings.fakeIpRange,
     };
   } else {
     delete config.tun;

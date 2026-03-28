@@ -2,6 +2,9 @@
   "name": "prisma-gui",
   "private": true,
   "version": "2.27.0",
+  "repository": "https://github.com/prisma-proxy/prisma-gui",
+  "homepage": "https://github.com/prisma-proxy/prisma-gui",
+  "bugs": "https://github.com/prisma-proxy/prisma-gui/issues",
   "type": "module",
   "scripts": {
     "dev": "vite",

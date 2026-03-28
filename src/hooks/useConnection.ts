@@ -7,7 +7,7 @@ import { useRuleProviders } from "@/store/ruleProviders";
 import { useSettings } from "@/store/settings";
 import { mergeSettingsIntoConfig } from "@/lib/buildConfig";
 import type { Profile } from "@/lib/types";
-import { MODE_SOCKS5, MODE_SYSTEM_PROXY } from "@/lib/types";
+import { MODE_SOCKS5, MODE_SYSTEM_PROXY, MODE_TUN } from "@/lib/types";
 
 export function useConnection() {
   const setActiveProfileIdx = useStore((s) => s.setActiveProfileIdx);
@@ -17,6 +17,17 @@ export function useConnection() {
   const setProxyModes = useSettings((s) => s.setProxyModes);
 
   const connectTo = useCallback(async (profile: Profile, modes: number): Promise<boolean> => {
+    // TUN mode requires admin privileges — check before connecting
+    if ((modes & MODE_TUN) !== 0) {
+      try {
+        const elevated = await api.checkElevation();
+        if (!elevated) {
+          notify.warning("TUN mode requires administrator privileges. Please restart the app as administrator.");
+          return false;
+        }
+      } catch { /* checkElevation not available on this platform */ }
+    }
+
     const profiles = useStore.getState().profiles;
     const idx = profiles.findIndex((p) => p.id === profile.id);
     if (idx >= 0) setActiveProfileIdx(idx);
@@ -30,6 +41,7 @@ export function useConnection() {
         useSettings.getState(),
         useRules.getState().rules,
         enabledProviders.length > 0 ? enabledProviders : undefined,
+        modes,
       );
       const routing = config.routing as { rules?: unknown[] } | undefined;
       console.log(`[connect] ${routing?.rules?.length ?? 0} routing rules, ${enabledProviders.length} providers`);
@@ -108,6 +120,20 @@ export function useConnection() {
     if (newModes === 0) newModes = MODE_SYSTEM_PROXY;
     const store = useStore.getState();
     if (store.connected) {
+      // TUN requires a full reconnect (can't be hot-toggled)
+      const hadTun = (oldModes & MODE_TUN) !== 0;
+      const hasTun = (newModes & MODE_TUN) !== 0;
+      if (hadTun !== hasTun) {
+        setProxyModes(newModes);
+        api.setTrayProxyMode(newModes).catch(() => {});
+        const profile = store.activeProfileIdx !== null
+          ? store.profiles[store.activeProfileIdx]
+          : store.profiles[0];
+        if (profile) await switchTo(profile, newModes);
+        return;
+      }
+
+      // System proxy can be hot-toggled
       const hadSystem = (oldModes & MODE_SYSTEM_PROXY) !== 0;
       const hasSystem = (newModes & MODE_SYSTEM_PROXY) !== 0;
       if (hadSystem && !hasSystem) {
@@ -121,7 +147,7 @@ export function useConnection() {
     }
     setProxyModes(newModes);
     api.setTrayProxyMode(newModes).catch(() => {});
-  }, [setProxyModes]);
+  }, [setProxyModes, switchTo]);
 
   return { connectTo, disconnect, switchTo, toggle, toggleProxyOnly, switchProxyMode };
 }

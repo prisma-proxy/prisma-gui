@@ -182,16 +182,33 @@ pub fn clear_system_proxy() -> Result<(), String> {
 #[tauri::command]
 pub async fn check_update(proxy_port: Option<u16>) -> Result<Option<serde_json::Value>, String> {
     let port = proxy_port.unwrap_or(0);
-    let result =
-        tokio::task::spawn_blocking(move || prisma_core::auto_update::check_with_proxy(port))
-            .await
-            .map_err(|e| e.to_string())?
-            .map_err(|e| e.to_string())?;
+    let result = tokio::task::spawn_blocking(move || {
+        prisma_core::auto_update::check_repo_with_proxy(
+            prisma_core::auto_update::GUI_RELEASES_API,
+            Some(gui_asset_hint()),
+            port,
+        )
+    })
+    .await
+    .map_err(|e| e.to_string())?
+    .map_err(|e| e.to_string())?;
 
     match result {
         Some(info) => Ok(serde_json::to_value(info).ok()),
         None => Ok(None),
     }
+}
+
+/// Asset name substring to match for this platform's GUI installer.
+fn gui_asset_hint() -> &'static str {
+    #[cfg(target_os = "windows")]
+    { "windows-x64-setup.exe" }
+    #[cfg(target_os = "macos")]
+    { "macos-universal.dmg" }
+    #[cfg(target_os = "linux")]
+    { "linux-amd64.AppImage" }
+    #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
+    { "gui" }
 }
 
 #[tauri::command]
@@ -407,8 +424,8 @@ pub fn get_pac_url(state: tauri::State<AppState>, pac_port: u16) -> Result<Strin
 // ── elevation check ───────────────────────────────────────────────────────────
 
 /// Check whether the process is running with elevated privileges.
-/// On Windows this always returns false (per-app proxy injection doesn't need elevation).
-/// On macOS/Linux, it checks if the process is running as root.
+/// On Windows, checks for admin token elevation.
+/// On macOS/Linux, checks if the process is running as root.
 #[tauri::command]
 pub fn check_elevation() -> bool {
     check_elevation_impl()
@@ -419,7 +436,31 @@ fn check_elevation_impl() -> bool {
     unsafe { libc::getuid() == 0 }
 }
 
-#[cfg(not(unix))]
+#[cfg(windows)]
+fn check_elevation_impl() -> bool {
+    use windows_sys::Win32::Security::{GetTokenInformation, TokenElevation, TOKEN_ELEVATION, TOKEN_QUERY};
+    use windows_sys::Win32::System::Threading::{GetCurrentProcess, OpenProcessToken};
+
+    unsafe {
+        let mut token = 0isize;
+        if OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &mut token) == 0 {
+            return false;
+        }
+        let mut elevation: TOKEN_ELEVATION = std::mem::zeroed();
+        let mut size = 0u32;
+        let ok = GetTokenInformation(
+            token,
+            TokenElevation,
+            &mut elevation as *mut _ as *mut _,
+            std::mem::size_of::<TOKEN_ELEVATION>() as u32,
+            &mut size,
+        );
+        windows_sys::Win32::Foundation::CloseHandle(token);
+        ok != 0 && elevation.TokenIsElevated != 0
+    }
+}
+
+#[cfg(not(any(unix, windows)))]
 fn check_elevation_impl() -> bool {
     false
 }

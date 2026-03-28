@@ -86,6 +86,26 @@ pub fn run() {
         .setup(|app| {
             state::APP_HANDLE.set(app.handle().clone()).ok();
 
+            // Copy bundled wintun.dll next to the exe so wintun::load() finds it
+            #[cfg(windows)]
+            {
+                if let Ok(resource_dir) = app.path().resource_dir() {
+                    let dll_src = resource_dir.join("resources").join("wintun.dll");
+                    if dll_src.exists() {
+                        if let Ok(exe_path) = std::env::current_exe() {
+                            if let Some(exe_dir) = exe_path.parent() {
+                                let dll_dst = exe_dir.join("wintun.dll");
+                                if !dll_dst.exists() {
+                                    if let Err(e) = std::fs::copy(&dll_src, &dll_dst) {
+                                        tracing::warn!("Failed to copy wintun.dll: {e}");
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
             #[cfg(desktop)]
             tray::setup(app)?;
 
