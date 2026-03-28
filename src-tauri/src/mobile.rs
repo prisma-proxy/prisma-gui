@@ -89,10 +89,27 @@ pub fn start_vpn_service(
                 .message
                 .unwrap_or_else(|| "Failed to start VPN".into()));
         }
-        // Set the TUN fd on the PrismaClient so the TUN handler can use it
-        if result.fd >= 0 {
-            unsafe { prisma_ffi::prisma_set_tun_fd(_client, result.fd) };
-        }
+        // The VPN service starts asynchronously on the main thread.
+        // Poll for the TUN fd via the plugin in a background thread.
+        let vpn_poll = app
+            .state::<tauri_plugin_vpn::Vpn<tauri::Wry>>()
+            .inner()
+            .clone();
+        let client_ptr = _client;
+        std::thread::spawn(move || {
+            for _ in 0..100 {
+                // 10 seconds total (100 * 100ms)
+                std::thread::sleep(std::time::Duration::from_millis(100));
+                if let Ok(r) = vpn_poll.get_tun_fd() {
+                    if r.fd >= 0 {
+                        tracing::info!(fd = r.fd, "Got TUN fd from VPN service");
+                        unsafe { prisma_ffi::prisma_set_tun_fd(client_ptr, r.fd) };
+                        return;
+                    }
+                }
+            }
+            tracing::warn!("Timed out waiting for TUN fd from VPN service");
+        });
         Ok(())
     }
     #[cfg(not(mobile))]

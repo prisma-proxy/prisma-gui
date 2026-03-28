@@ -62,24 +62,24 @@ class VpnPlugin(private val activity: Activity) : Plugin(activity) {
             }
             activity.startForegroundService(serviceIntent)
 
-            // Wait briefly for the service to create the TUN and set the fd
-            var fd = -1
-            for (i in 0 until 50) { // up to 5 seconds
-                Thread.sleep(100)
-                fd = PrismaVpnService.tunFd
-                if (fd >= 0) break
-            }
-
+            // Return immediately — don't poll on the main thread.
+            // The Rust side will poll for the fd via MOBILE_TUN_FD atomic.
+            // The VPN service sets PrismaVpnService.tunFd when TUN is created,
+            // but we can't block here waiting for it (main thread deadlock).
             val result = JSObject()
-            result.put("success", fd >= 0)
-            result.put("fd", fd)
-            if (fd < 0) {
-                result.put("message", "VPN service started but TUN fd not available")
-            }
+            result.put("success", true)
+            result.put("fd", -1) // fd not available yet, Rust polls for it
             invoke.resolve(result)
         } catch (e: Exception) {
             invoke.reject(e.message ?: "Failed to start VPN service", "START_ERROR")
         }
+    }
+
+    @Command
+    fun getTunFd(invoke: Invoke) {
+        val result = JSObject()
+        result.put("fd", PrismaVpnService.tunFd)
+        invoke.resolve(result)
     }
 
     @Command

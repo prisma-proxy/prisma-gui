@@ -55,6 +55,13 @@ impl<R: Runtime> Vpn<R> {
             .map_err(|e| e.to_string())
     }
 
+    /// Get the TUN fd from the VPN service (polls the Kotlin static field).
+    pub fn get_tun_fd(&self) -> Result<ServiceResult, String> {
+        self.0
+            .run_mobile_plugin::<ServiceResult>("getTunFd", ())
+            .map_err(|e| e.to_string())
+    }
+
     /// Stop the native VPN service.
     pub fn stop_service(&self) -> Result<ServiceResult, String> {
         self.0

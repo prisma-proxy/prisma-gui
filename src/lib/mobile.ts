@@ -19,11 +19,12 @@ export function getEffectiveModes(): number {
   return modes;
 }
 
-/** Start mobile VPN service and wait for fd readiness. No-op on desktop. */
+/** Start mobile VPN service. The Rust side polls for the TUN fd asynchronously. */
 export async function startMobileVpnIfNeeded(modes: number): Promise<void> {
   if (!isMobileSync() || (modes & MODE_TUN) === 0) return;
   await api.startVpnService();
-  await new Promise(r => setTimeout(r, 500));
+  // No sleep needed — the Rust start_vpn_service command spawns a background
+  // thread that polls the Kotlin VPN service for the TUN fd.
 }
 
 /** Stop mobile VPN service if running in VPN mode. No-op on desktop. */

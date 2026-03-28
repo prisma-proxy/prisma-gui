@@ -48,6 +48,13 @@ impl Vpn {
             fd: -1,
         })
     }
+    pub fn get_tun_fd(&self) -> Result<ServiceResult, String> {
+        Ok(ServiceResult {
+            success: true,
+            message: None,
+            fd: -1,
+        })
+    }
     pub fn stop_service(&self) -> Result<ServiceResult, String> {
         Ok(ServiceResult {
             success: true,
