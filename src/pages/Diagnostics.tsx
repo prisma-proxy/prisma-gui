@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
-import { Activity, Loader2, CheckCircle2, XCircle } from "lucide-react";
+import { Activity, Loader2, CheckCircle2, XCircle, PlayCircle } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -95,6 +95,10 @@ export default function Diagnostics() {
   const [connHost, setConnHost] = useState("");
   const [connResult, setConnResult] = useState<DiagResult>({ status: "idle" });
 
+  // Batch "Test All" state
+  const [batchRunning, setBatchRunning] = useState(false);
+  const [batchProgress, setBatchProgress] = useState(0);
+
   const handleLatencyTest = useCallback(async () => {
     const addr = latencyHost.trim();
     if (!addr) return;
@@ -168,12 +172,39 @@ export default function Diagnostics() {
     }
   }, [connHost, t]);
 
+  const handleTestAll = useCallback(async () => {
+    setBatchRunning(true);
+    setBatchProgress(1);
+    await handleLatencyTest();
+    setBatchProgress(2);
+    await handleDnsLookup();
+    setBatchProgress(3);
+    await handleConnectionTest();
+    setBatchRunning(false);
+    setBatchProgress(0);
+  }, [handleLatencyTest, handleDnsLookup, handleConnectionTest]);
+
+  const allHostsFilled = latencyHost.trim() && dnsHost.trim() && connHost.trim();
+
   return (
     <ScrollArea className="h-full">
       <div className="p-4 sm:p-6 pb-12 space-y-4">
-        <div className="flex items-center gap-2">
-          <Activity size={20} />
-          <h1 className="font-bold text-lg">{t("diagnostics.title")}</h1>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Activity size={20} />
+            <h1 className="font-bold text-lg">{t("diagnostics.title")}</h1>
+          </div>
+          <Button
+            size="sm"
+            disabled={batchRunning || !allHostsFilled}
+            onClick={handleTestAll}
+          >
+            {batchRunning ? (
+              <><Loader2 size={14} className="animate-spin" /> {t("diagnostics.testing")} {batchProgress}/3...</>
+            ) : (
+              <><PlayCircle size={14} /> {t("diagnostics.testAll")}</>
+            )}
+          </Button>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

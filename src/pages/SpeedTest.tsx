@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useTranslation } from "react-i18next";
-import { PlayCircle, ArrowDown, ArrowUp, Activity, Trash2, Clock, Loader2, BarChart3, List } from "lucide-react";
+import { PlayCircle, ArrowDown, ArrowUp, Activity, Trash2, Clock, Loader2, BarChart3, List, Square } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -153,17 +153,27 @@ export default function SpeedTest() {
         </div>
       </div>
 
-      <Button
-        className="w-full"
-        disabled={speedTestRunning || !connected}
-        onClick={handleRun}
-      >
-        {speedTestRunning ? (
-          <><Loader2 className="animate-spin" /> {t("speedTest.running")}</>
-        ) : (
-          <><PlayCircle /> {t("speedTest.run")}</>
+      <div className="flex gap-2">
+        <Button
+          className="flex-1"
+          disabled={speedTestRunning || !connected}
+          onClick={handleRun}
+        >
+          {speedTestRunning ? (
+            <><Loader2 className="animate-spin" /> {t("speedTest.running")}</>
+          ) : (
+            <><PlayCircle /> {t("speedTest.run")}</>
+          )}
+        </Button>
+        {speedTestRunning && (
+          <Button
+            variant="outline"
+            onClick={() => setSpeedTestRunning(false)}
+          >
+            <Square size={16} /> {t("speedTest.cancel")}
+          </Button>
         )}
-      </Button>
+      </div>
 
       {speedTestRunning && (
         <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground py-4">

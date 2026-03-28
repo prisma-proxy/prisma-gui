@@ -10,6 +10,7 @@ import {
   ArrowUp,
   X,
   Radio,
+  Download,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -25,7 +26,8 @@ import {
 import ConfirmDialog from "@/components/ConfirmDialog";
 import { useConnections, type TrackedConnection, type ConnectionAction } from "@/store/connections";
 import { fmtBytes, fmtDuration } from "@/lib/format";
-import { cn } from "@/lib/utils";
+import { cn, downloadText } from "@/lib/utils";
+import { usePlatform } from "@/hooks/usePlatform";
 
 type SortField =
   | "destination"
@@ -85,6 +87,7 @@ const GRID_COLS_MOBILE = "grid-cols-[32px_1fr_72px_72px_72px_28px]";
 
 export default function Connections() {
   const { t } = useTranslation();
+  const { isDesktop } = usePlatform();
   const connections = useConnections((s) => s.connections);
   const clearAll = useConnections((s) => s.clearAll);
   const clearClosed = useConnections((s) => s.clearClosed);
@@ -115,6 +118,17 @@ export default function Connections() {
     },
     [sortField]
   );
+
+  const handleExportCsv = useCallback(async () => {
+    const headers = "Destination,Action,Rule,Transport,Download,Upload,Duration,Status";
+    const rows = connections.map(c =>
+      `"${c.destination}","${c.action}","${c.rule ?? ""}","${c.transport ?? ""}",${c.bytesDown ?? 0},${c.bytesUp ?? 0},"${fmtDuration(connDuration(c))}","${c.closedAt ? "closed" : "active"}"`
+    );
+    const csv = [headers, ...rows].join("\n");
+    try {
+      await downloadText(csv, `prisma-connections-${Date.now()}.csv`);
+    } catch {}
+  }, [connections]);
 
   // Counts
   const counts = useMemo(() => {
@@ -306,6 +320,18 @@ export default function Connections() {
             <SelectItem value="closed">{t("connections.closed")}</SelectItem>
           </SelectContent>
         </Select>
+        {isDesktop && (
+          <Button
+            size="icon"
+            variant="ghost"
+            className="h-8 w-8 shrink-0"
+            onClick={handleExportCsv}
+            disabled={connections.length === 0}
+            title={t("connections.exportCsv")}
+          >
+            <Download size={14} />
+          </Button>
+        )}
         <Button
           size="icon"
           variant="ghost"

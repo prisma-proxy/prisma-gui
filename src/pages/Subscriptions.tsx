@@ -197,9 +197,9 @@ export default function Subscriptions() {
 
   return (
     <div className="p-4 sm:p-6 flex flex-col h-full gap-3">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
         <h1 className="font-bold text-lg">{t("subscriptions.title")}</h1>
-        <div className="flex gap-1">
+        <div className="flex flex-wrap gap-1">
           {subscriptions.length > 0 && (
             <Button
               size="sm"
@@ -222,7 +222,7 @@ export default function Subscriptions() {
       </div>
 
       {/* Summary cards */}
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
         <Card>
           <CardContent className="py-2 px-3 text-center">
             <p className="text-lg font-bold">{subscriptions.length}</p>
@@ -278,7 +278,7 @@ export default function Subscriptions() {
             return (
               <Card key={sub.url} className="overflow-hidden">
                 <div
-                  className="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-accent/50 transition-colors"
+                  className="flex items-center justify-between px-3 sm:px-4 py-3 cursor-pointer hover:bg-accent/50 transition-colors"
                   onClick={() => toggleExpanded(sub.url)}
                 >
                   <div className="flex items-center gap-2 min-w-0 flex-1">
@@ -318,7 +318,7 @@ export default function Subscriptions() {
                   </div>
 
                   <div
-                    className="flex gap-1 shrink-0"
+                    className="flex flex-wrap gap-1 shrink-0"
                     onClick={(e) => e.stopPropagation()}
                   >
                     <Button
