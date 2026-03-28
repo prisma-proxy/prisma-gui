@@ -10,11 +10,24 @@ interface PlatformStore {
   init: (p: PlatformName) => void;
 }
 
+/** Detect platform early using user agent heuristics (synchronous). */
+function detectPlatformSync(): PlatformName {
+  const ua = navigator.userAgent.toLowerCase();
+  if (ua.includes("android")) return "android";
+  if (ua.includes("iphone") || ua.includes("ipad")) return "ios";
+  if (ua.includes("windows")) return "windows";
+  if (ua.includes("mac")) return "macos";
+  if (ua.includes("linux")) return "linux";
+  return "unknown";
+}
+
+const initialPlatform = detectPlatformSync();
+
 export const usePlatformStore = create<PlatformStore>()((set) => ({
-  platform: "unknown",
-  isMobile: false,
-  isDesktop: false,
-  ready: false,
+  platform: initialPlatform,
+  isMobile: initialPlatform === "ios" || initialPlatform === "android",
+  isDesktop: initialPlatform !== "ios" && initialPlatform !== "android" && initialPlatform !== "unknown",
+  ready: initialPlatform !== "unknown",
   init: (p) =>
     set({
       platform: p,
