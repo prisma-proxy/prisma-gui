@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import { Wifi, WifiOff, RefreshCw, Clock, ArrowUpDown, ArrowDown, ArrowUp, Timer, Database, Signal, ClipboardCopy } from "lucide-react";
+import { Wifi, WifiOff, RefreshCw, Clock, ArrowUpDown, ArrowDown, ArrowUp, Timer, Database, Signal, ClipboardCopy, ShieldAlert } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -48,6 +48,7 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [latency, setLatency] = useState<number | null>(null);
+  const [isElevated, setIsElevated] = useState(true); // default true to avoid flash
 
   useEffect(() => {
     api.listProfiles()
@@ -55,6 +56,13 @@ export default function Home() {
       .catch((e) => console.warn("Failed to load profiles:", e))
       .finally(() => setLoading(false));
   }, [setProfiles]);
+
+  // Check elevation status (desktop only, once at mount)
+  useEffect(() => {
+    if (isDesktop) {
+      api.checkElevation().then(setIsElevated).catch(() => setIsElevated(true));
+    }
+  }, [isDesktop]);
 
   // Sync connection status when Home page mounts (covers navigation back to Home)
   useEffect(() => {
@@ -107,6 +115,13 @@ export default function Home() {
   const onModeChange = useCallback((vals: string[]) => {
     const addedSys = vals.includes("sys") && !modeValues.includes("sys");
     const addedTun = vals.includes("tun") && !modeValues.includes("tun");
+    const addedApp = vals.includes("app") && !modeValues.includes("app");
+
+    // Block TUN/Per-App when not running as administrator
+    if ((addedTun || addedApp) && !isElevated) {
+      notify.warning(t("home.tunRequiresAdmin"));
+      return;
+    }
 
     // System Proxy and TUN are mutually exclusive
     if (addedSys) vals = vals.filter(v => v !== "tun" && v !== "app");
@@ -126,7 +141,7 @@ export default function Home() {
     if (vals.includes("app")) flags |= MODE_PER_APP;
     const oldModes = useSettings.getState().proxyModes;
     switchProxyMode(oldModes, flags);
-  }, [switchProxyMode, modeValues]);
+  }, [switchProxyMode, modeValues, isElevated, t]);
 
   const activeProfile = activeProfileIdx !== null ? profiles[activeProfileIdx] : profiles[0];
   const latencyColor = latency === null ? "text-muted-foreground" : latency < 100 ? "text-green-500" : latency < 300 ? "text-yellow-500" : "text-red-500";
@@ -253,8 +268,11 @@ export default function Home() {
               size="sm"
             >
               <ToggleGroupItem value="sys">{t("home.modeSystem")}</ToggleGroupItem>
-              <ToggleGroupItem value="tun">TUN</ToggleGroupItem>
-              <ToggleGroupItem value="app">{t("home.modePerApp")}</ToggleGroupItem>
+              <ToggleGroupItem value="tun" disabled={!isElevated}>
+                {!isElevated && <ShieldAlert size={12} className="text-yellow-500" />}
+                TUN
+              </ToggleGroupItem>
+              <ToggleGroupItem value="app" disabled={!isElevated}>{t("home.modePerApp")}</ToggleGroupItem>
             </ToggleGroup>
           </div>
         </div>

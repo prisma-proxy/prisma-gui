@@ -234,29 +234,47 @@ pub async fn apply_update(
     let app_clone = app.clone();
     let port = proxy_port.unwrap_or(0);
     tokio::task::spawn_blocking(move || {
-        // Emit downloading phase
         let _ = app_clone.emit(
             "update-progress",
-            serde_json::json!({"phase": "downloading"}),
+            serde_json::json!({"phase": "downloading", "progress": 0}),
         );
 
+        let emit_handle = app_clone.clone();
+        let on_progress = move |downloaded: u64, total: u64| {
+            let pct = if total > 0 {
+                (downloaded * 100 / total) as u32
+            } else {
+                0
+            };
+            let _ = emit_handle.emit(
+                "update-progress",
+                serde_json::json!({"phase": "downloading", "progress": pct}),
+            );
+        };
+
         let bytes = if sha.is_empty() {
-            prisma_core::auto_update::download_with_proxy(&url, port)
+            prisma_core::auto_update::download_with_progress(&url, port, on_progress)
         } else {
-            prisma_core::auto_update::download_and_verify_with_proxy(&url, &sha, port)
+            prisma_core::auto_update::download_and_verify_with_progress(
+                &url,
+                &sha,
+                port,
+                on_progress,
+            )
         }
         .map_err(|e| e.to_string())?;
 
-        // Emit installing phase
         let _ = app_clone.emit(
             "update-progress",
-            serde_json::json!({"phase": "installing"}),
+            serde_json::json!({"phase": "installing", "progress": 100}),
         );
 
         prisma_core::auto_update::self_replace(&bytes).map_err(|e| e.to_string())?;
 
-        // Emit done
-        let _ = app_clone.emit("update-progress", serde_json::json!({"phase": "done"}));
+        let _ = app_clone.emit(
+            "update-progress",
+            serde_json::json!({"phase": "done", "progress": 100}),
+        );
 
         Ok::<(), String>(())
     })

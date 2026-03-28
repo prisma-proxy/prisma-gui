@@ -46,10 +46,13 @@ export default function UpdatesSection() {
 
   // Listen for update-progress events from the Tauri backend
   useEffect(() => {
-    const unlisten = listen<{ phase: string }>("update-progress", (event) => {
-      const phase = event.payload.phase;
+    const unlisten = listen<{ phase: string; progress?: number }>("update-progress", (event) => {
+      const { phase, progress } = event.payload;
       if (phase === "downloading" || phase === "installing" || phase === "done") {
         setUpdatePhase(phase);
+      }
+      if (typeof progress === "number") {
+        setUpdateProgress(progress);
       }
       if (phase === "done") {
         setUpdateProgress(null);

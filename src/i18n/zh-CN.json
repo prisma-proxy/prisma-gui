@@ -20,6 +20,7 @@
     "modeSystem": "系统代理",
     "modeProxyOnly": "仅代理",
     "modePerApp": "分应用",
+    "tunRequiresAdmin": "TUN 模式需要以管理员身份运行。请以提升权限重新启动应用。",
     "connect": "连接",
     "proxyOnly": "仅代理",
     "proxyOnlyTooltip": "仅启动 SOCKS5/HTTP 代理，不设置系统代理",

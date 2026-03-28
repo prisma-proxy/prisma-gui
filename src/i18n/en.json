@@ -20,6 +20,7 @@
     "modeSystem": "System",
     "modeProxyOnly": "Proxy Only",
     "modePerApp": "Per-App",
+    "tunRequiresAdmin": "TUN mode requires running as Administrator. Please restart the app with elevated privileges.",
     "connect": "Connect",
     "proxyOnly": "Proxy Only",
     "proxyOnlyTooltip": "Start SOCKS5/HTTP proxy without setting system proxy",
