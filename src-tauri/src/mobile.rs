@@ -27,26 +27,20 @@ fn client_ptr(state: &tauri::State<AppState>) -> Result<*mut prisma_ffi::PrismaC
 /// Check whether VPN permission is granted.
 ///
 /// Android: calls VpnPlugin.checkPermission() → VpnService.prepare().
-/// iOS: checks cached permission status from FFI.
+/// iOS: calls VpnPlugin.checkPermission() → NETunnelProviderManager.loadAllFromPreferences.
 /// Desktop: always true.
 #[tauri::command]
 pub fn check_vpn_permission(
     app: tauri::AppHandle,
     state: tauri::State<AppState>,
 ) -> Result<bool, String> {
-    #[cfg(target_os = "android")]
+    #[cfg(mobile)]
     {
         let _ = &state;
         let vpn = app.state::<tauri_plugin_vpn::Vpn<tauri::Wry>>();
         vpn.check_permission().map(|r| r.granted)
     }
-    #[cfg(target_os = "ios")]
-    {
-        let _ = (&app, &state);
-        let status = unsafe { prisma_ffi::prisma_ios_vpn_permission_status() };
-        Ok(status == 1)
-    }
-    #[cfg(not(any(target_os = "android", target_os = "ios")))]
+    #[cfg(not(mobile))]
     {
         let _ = (&app, &state);
         Ok(true)
@@ -55,17 +49,17 @@ pub fn check_vpn_permission(
 
 /// Request VPN permission from the operating system.
 ///
-/// Android: launches the system VPN consent dialog via VpnPlugin.requestPermission().
-/// iOS: implicit with Network Extension entitlement.
+/// Android: launches the system VPN consent dialog.
+/// iOS: saves a VPN config profile which triggers the system "Allow VPN" alert.
 /// Desktop: always true.
 #[tauri::command]
 pub fn request_vpn_permission(app: tauri::AppHandle) -> Result<bool, String> {
-    #[cfg(target_os = "android")]
+    #[cfg(mobile)]
     {
         let vpn = app.state::<tauri_plugin_vpn::Vpn<tauri::Wry>>();
         vpn.request_permission().map(|r| r.granted)
     }
-    #[cfg(not(target_os = "android"))]
+    #[cfg(not(mobile))]
     {
         let _ = &app;
         Ok(true)
@@ -76,8 +70,8 @@ pub fn request_vpn_permission(app: tauri::AppHandle) -> Result<bool, String> {
 
 /// Start the native VPN service.
 ///
-/// Android: starts PrismaVpnService via VpnPlugin.startService().
-/// iOS: emits event for Swift layer.
+/// Android: starts PrismaVpnService via VpnPlugin.
+/// iOS: starts NETunnelProviderManager tunnel via VpnPlugin.
 /// Desktop: no-op.
 #[tauri::command]
 pub fn start_vpn_service(
@@ -86,7 +80,7 @@ pub fn start_vpn_service(
 ) -> Result<(), String> {
     let _client = client_ptr(&state)?;
 
-    #[cfg(target_os = "android")]
+    #[cfg(mobile)]
     {
         let vpn = app.state::<tauri_plugin_vpn::Vpn<tauri::Wry>>();
         let result = vpn.start_service(_client as u64)?;
@@ -97,16 +91,7 @@ pub fn start_vpn_service(
         }
         Ok(())
     }
-    #[cfg(target_os = "ios")]
-    {
-        use tauri::Emitter;
-        let _ = app.emit(
-            "vpn://start",
-            serde_json::json!({ "handle": _client as usize }),
-        );
-        Ok(())
-    }
-    #[cfg(not(any(target_os = "android", target_os = "ios")))]
+    #[cfg(not(mobile))]
     {
         let _ = &app;
         Ok(())
@@ -126,17 +111,12 @@ pub fn stop_vpn_service(
     let _client = client_ptr(&state)?;
     unsafe { prisma_ffi::prisma_set_tun_fd(_client, -1) };
 
-    #[cfg(target_os = "android")]
+    #[cfg(mobile)]
     {
         let vpn = app.state::<tauri_plugin_vpn::Vpn<tauri::Wry>>();
         let _ = vpn.stop_service();
     }
-    #[cfg(target_os = "ios")]
-    {
-        use tauri::Emitter;
-        let _ = app.emit("vpn://stop", serde_json::json!({}));
-    }
-    #[cfg(not(any(target_os = "android", target_os = "ios")))]
+    #[cfg(not(mobile))]
     {
         let _ = &app;
     }
