@@ -104,9 +104,12 @@ pub fn start_vpn_service(state: tauri::State<AppState>) -> Result<(), String> {
         if let Some(handle) = crate::state::APP_HANDLE.get() {
             use tauri::Emitter;
             let client_handle = _client as usize;
-            let _ = handle.emit("vpn://start", serde_json::json!({
-                "handle": client_handle,
-            }));
+            let _ = handle.emit(
+                "vpn://start",
+                serde_json::json!({
+                    "handle": client_handle,
+                }),
+            );
         }
         Ok(())
     }
