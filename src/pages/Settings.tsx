@@ -57,9 +57,6 @@ export default function Settings() {
 
         <TunSection />
 
-        {/* Mobile settings on desktop (at original position) */}
-        {!isMobile && isMobile === false && null}
-
         <Separator />
         <RoutingSection />
 

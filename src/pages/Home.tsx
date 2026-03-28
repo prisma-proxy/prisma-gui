@@ -50,7 +50,7 @@ export default function Home() {
   useEffect(() => {
     api.listProfiles()
       .then((p) => setProfiles(p))
-      .catch(() => {})
+      .catch((e) => console.warn("Failed to load profiles:", e))
       .finally(() => setLoading(false));
   }, [setProfiles]);
 

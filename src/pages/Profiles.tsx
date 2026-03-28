@@ -684,6 +684,12 @@ export default function Profiles() {
           config: item.config ?? item,
           created_at: item.created_at ?? new Date().toISOString(),
         };
+        // Basic validation: require server_addr in config
+        const cfg = p.config as Record<string, unknown> | undefined;
+        if (!cfg?.server_addr) {
+          console.warn("Skipping invalid profile (missing server_addr):", p.name);
+          continue;
+        }
         await api.saveProfile(JSON.stringify(p));
         count++;
       }

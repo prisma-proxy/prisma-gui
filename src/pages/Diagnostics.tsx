@@ -108,13 +108,13 @@ export default function Diagnostics() {
       const elapsed = Math.round(performance.now() - start);
       setLatencyResult({
         status: "success",
-        message: t("diagnostics.result") + ": " + ms + "ms (" + elapsed + "ms total)",
+        message: `${t("diagnostics.result")}: ${ms}ms (${elapsed}ms total)`,
         ms,
       });
     } catch (e) {
       setLatencyResult({
         status: "error",
-        message: t("diagnostics.failed") + ": " + String(e),
+        message: `${t("diagnostics.failed")}: ${String(e)}`,
       });
     }
   }, [latencyHost, t]);
@@ -139,7 +139,7 @@ export default function Diagnostics() {
     } catch (e) {
       setDnsResult({
         status: "error",
-        message: t("diagnostics.failed") + ": " + String(e),
+        message: `${t("diagnostics.failed")}: ${String(e)}`,
       });
     }
   }, [dnsHost, t]);
@@ -163,7 +163,7 @@ export default function Diagnostics() {
     } catch (e) {
       setConnResult({
         status: "error",
-        message: t("diagnostics.failed") + ": " + String(e),
+        message: `${t("diagnostics.failed")}: ${String(e)}`,
       });
     }
   }, [connHost, t]);

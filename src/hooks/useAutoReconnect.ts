@@ -49,7 +49,8 @@ export function useAutoReconnect() {
         useStore.getState().setConnectStartTime(Date.now());
         await api.connect(JSON.stringify(config), proxyModes);
         api.setActiveProfileId(profile.id).catch(() => {});
-      } catch {
+      } catch (e) {
+        console.warn("Auto-reconnect failed:", e);
         useStore.getState().setConnectStartTime(null);
         // Next disconnect event will trigger another attempt
       }

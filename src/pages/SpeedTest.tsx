@@ -98,7 +98,11 @@ export default function SpeedTest() {
   }, [duration, serverIdx, t, connected, setSpeedTestRunning]);
 
   const handleDurationBlur = useCallback(() => {
-    setDuration((d) => Math.max(5, Math.min(60, d)));
+    setDuration((d) => {
+      const clamped = Math.max(5, Math.min(60, d));
+      if (clamped !== d) notify.info(`Duration clamped to ${clamped}s (range: 5–60)`);
+      return clamped;
+    });
   }, []);
 
   const recentHistory = history.slice().reverse().slice(0, 10);
