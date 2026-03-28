@@ -301,6 +301,7 @@
     "downloadingUpdate": "Downloading update…",
     "installingUpdate": "Installing update…",
     "updateInstalled": "Update installed! Restart to apply.",
+    "restartNow": "Restart Now",
     "updateStagedRestart": "Update staged. Restart to complete installation.",
     "available": "available",
     "newVersionReady": "A new version of Prisma is ready to install.",

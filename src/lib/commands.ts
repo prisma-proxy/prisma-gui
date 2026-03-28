@@ -55,6 +55,9 @@ export const api = {
   pingServer:       (addr: string) =>
     invoke<number>("ping_server", { addr }),
 
+  restartApp: () =>
+    invoke<void>("restart_app"),
+
   speedTest:        (server: string, durationSecs: number) =>
     invoke<void>("speed_test", { server, durationSecs }),
 

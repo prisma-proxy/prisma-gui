@@ -29,6 +29,8 @@ export function useAutoReconnect() {
   useEffect(() => {
     if (connected || connecting || manualDisconnect || !autoReconnect) return;
     if (reconnectMaxAttempts > 0 && attemptsRef.current >= reconnectMaxAttempts) return;
+    // Don't burn reconnect attempts when the device has no network
+    if (!navigator.onLine) return;
 
     // Exponential backoff capped at 60s
     const delay = Math.min(reconnectDelaySecs * 1000 * Math.pow(1.5, attemptsRef.current), 60_000);

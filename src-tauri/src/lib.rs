@@ -128,6 +128,7 @@ pub fn run() {
             commands::set_active_profile_id,
             commands::set_tray_port,
             commands::quit_app,
+            commands::restart_app,
             commands::set_tray_proxy_mode,
             commands::get_active_profile_id,
             commands::get_proxy_mode,

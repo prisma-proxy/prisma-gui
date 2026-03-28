@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { RefreshCw, Download } from "lucide-react";
+import { RefreshCw, Download, RotateCcw } from "lucide-react";
 import { listen } from "@tauri-apps/api/event";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -136,8 +136,11 @@ export default function UpdatesSection() {
       )}
 
       {updatePhase === "done" && (
-        <div className="rounded-lg border border-blue-600/30 bg-blue-600/10 p-3 text-sm">
+        <div className="rounded-lg border border-blue-600/30 bg-blue-600/10 p-3 text-sm flex items-center justify-between">
           <p className="font-medium">{t("settings.updateInstalled")}</p>
+          <Button size="sm" onClick={() => api.restartApp()}>
+            <RotateCcw size={14} /> {t("settings.restartNow")}
+          </Button>
         </div>
       )}
 

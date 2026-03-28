@@ -8,6 +8,8 @@ const STATUS_CONNECTING = 1;
 const STATUS_CONNECTED = 2;
 
 export async function syncStatus() {
+  // Skip sync when browser reports offline to avoid hanging API calls
+  if (!navigator.onLine) return;
   try {
     const status = await api.getStatus();
     const store = useStore.getState();

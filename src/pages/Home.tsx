@@ -83,14 +83,17 @@ export default function Home() {
       return;
     }
 
-    const addr = serverAddr; // capture narrowed string
+    const addr = serverAddr;
     let cancelled = false;
+    let failures = 0;
     async function ping() {
+      // Skip when browser reports offline or after consecutive failures
+      if (!navigator.onLine || failures >= 3) return;
       try {
         const ms = await api.pingServer(addr);
-        if (!cancelled) setLatency(ms);
+        if (!cancelled) { setLatency(ms); failures = 0; }
       } catch {
-        if (!cancelled) setLatency(null);
+        if (!cancelled) { setLatency(null); failures++; }
       }
     }
     ping();

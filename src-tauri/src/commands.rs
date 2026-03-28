@@ -304,6 +304,11 @@ pub fn quit_app(app: tauri::AppHandle) {
 }
 
 #[tauri::command]
+pub fn restart_app(app: tauri::AppHandle) {
+    app.restart();
+}
+
+#[tauri::command]
 pub fn set_tray_proxy_mode(app: tauri::AppHandle, mode: u32) {
     #[cfg(desktop)]
     {
@@ -425,21 +430,35 @@ pub fn sync_tray_toggles(
 // ── ping ──────────────────────────────────────────────────────────────────────
 
 #[tauri::command]
-pub fn ping_server(addr: String) -> Result<u64, String> {
-    let cstr = CString::new(addr).map_err(|e| e.to_string())?;
-    let ptr = unsafe { prisma_ffi::prisma_ping(cstr.as_ptr()) };
-    match unsafe { read_owned_cstr(ptr) } {
-        None => Err("ping returned null".into()),
-        Some(json) => {
-            let val: serde_json::Value = serde_json::from_str(&json).map_err(|e| e.to_string())?;
-            if let Some(ms) = val["latency_ms"].as_u64() {
-                Ok(ms)
-            } else if let Some(err) = val["error"].as_str() {
-                Err(err.to_string())
-            } else {
-                Err("unexpected ping response".into())
+pub async fn ping_server(addr: String) -> Result<u64, String> {
+    // 5-second timeout to prevent hanging when offline
+    let result = tokio::time::timeout(
+        std::time::Duration::from_secs(5),
+        tokio::task::spawn_blocking(move || {
+            let cstr = CString::new(addr).map_err(|e| e.to_string())?;
+            let ptr = unsafe { prisma_ffi::prisma_ping(cstr.as_ptr()) };
+            match unsafe { read_owned_cstr(ptr) } {
+                None => Err("ping returned null".into()),
+                Some(json) => {
+                    let val: serde_json::Value =
+                        serde_json::from_str(&json).map_err(|e| e.to_string())?;
+                    if let Some(ms) = val["latency_ms"].as_u64() {
+                        Ok(ms)
+                    } else if let Some(err) = val["error"].as_str() {
+                        Err(err.to_string())
+                    } else {
+                        Err("unexpected ping response".into())
+                    }
+                }
             }
-        }
+        }),
+    )
+    .await;
+
+    match result {
+        Ok(Ok(v)) => v,
+        Ok(Err(e)) => Err(e.to_string()),
+        Err(_) => Err("ping timed out".into()),
     }
 }
 
