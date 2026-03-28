@@ -33,8 +33,13 @@ You handle all Tauri backend and platform-specific work in `src-tauri/src/`.
 ## Quality Gates
 
 ```bash
-cd src-tauri && cargo check && cargo clippy --all-targets && cargo fmt --all -- --check
+cd src-tauri && cargo fmt --all && cargo clippy --all-targets -- -D warnings && cargo check
+npx tsc --noEmit
 # Mobile:
 # tauri android dev   (requires Android SDK)
 # tauri ios dev       (requires Xcode)
 ```
+
+## Pre-Push Requirement
+
+Before ANY `git push`, ALWAYS run the quality gates above. Never push code that fails fmt, clippy, tsc, or cargo check.

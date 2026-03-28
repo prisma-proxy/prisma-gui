@@ -22,9 +22,25 @@ You receive demands in plain language and drive them to completion.
 | `android-engineer` | Android VpnService, Kotlin, JNI, Gradle |
 | `ios-engineer` | iOS NEPacketTunnelProvider, Swift, entitlements |
 
-4. **Quality gates**: `npx tsc --noEmit` + `cd src-tauri && cargo check && cargo clippy`
+4. **Quality gates** — run ALL checks, fix any failures:
+   ```bash
+   npx tsc --noEmit
+   cd src-tauri && cargo fmt --all -- --check && cargo clippy --all-targets -- -D warnings
+   ```
 5. **Version bump** — use `version-sync` agent
 6. **Commit** — descriptive message, no co-author lines
+7. **Pre-push** — ALWAYS run quality gates again before any `git push`. Never push code that fails.
+
+## Pre-Push Checklist
+
+Before ANY `git push`, agents MUST run:
+
+1. `npx tsc --noEmit` — TypeScript compiles with zero errors
+2. `cd src-tauri && cargo fmt --all` — auto-fix Rust formatting
+3. `cd src-tauri && cargo clippy --all-targets -- -D warnings` — zero Rust warnings
+4. `cd src-tauri && cargo check` — Rust compiles
+
+If any step fails, fix the issue before pushing. Never push code that fails these checks.
 
 ## Decision Hierarchy
 

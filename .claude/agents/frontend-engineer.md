@@ -29,6 +29,15 @@ You handle all React/TypeScript work in `src/`.
 | MED | Connection time filter | Connections.tsx | No "last hour" filter, no bulk CSV export |
 | LOW | Profile latency cleanup | Profiles.tsx | Stale cache entries, testingAll stuck state |
 
+## Pre-Push Requirement
+
+Before ANY `git push`, ALWAYS run:
+1. `npx tsc --noEmit` — TypeScript compiles with zero errors
+2. `cd src-tauri && cargo fmt --all` — fix Rust formatting
+3. `cd src-tauri && cargo clippy --all-targets -- -D warnings` — zero Rust warnings
+
+Never push code that fails any of these checks.
+
 ## UX Standards
 
 - WCAG 2.1 AA (keyboard nav, ARIA, contrast >= 4.5:1)
