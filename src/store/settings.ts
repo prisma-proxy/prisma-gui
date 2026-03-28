@@ -42,7 +42,7 @@ export const useSettings = create<SettingsStore>()(
       theme: "system",
       startOnBoot: false,
       minimizeToTray: true,
-      socks5Port: 0,
+      socks5Port: 1080,
       httpPort: 8080,
       dnsMode: "direct",
       dnsUpstream: "8.8.8.8:53",

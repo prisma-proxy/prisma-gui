@@ -253,6 +253,7 @@
     "measuringDownload": "Measuring download…",
     "measuringUpload": "Measuring upload…",
     "notConnected": "Speed test requires an active proxy connection. Connect to a profile first.",
+    "noProxy": "Speed test requires SOCKS5 proxy. Enable it in Settings → Proxy Ports (default: 1080).",
     "history": "History",
     "avgDownload": "Avg ↓ Mbps",
     "avgUpload": "Avg ↑ Mbps",

@@ -92,7 +92,12 @@ export default function SpeedTest() {
       setSpeedTestRunning(true);
       await api.speedTest(server.label.toLowerCase(), duration);
     } catch (e) {
-      notify.error(String(e));
+      const msg = String(e);
+      if (msg.includes("error 3") || msg.includes("NOT_CONNECTED")) {
+        notify.error(t("speedTest.noProxy"));
+      } else {
+        notify.error(msg);
+      }
       setSpeedTestRunning(false);
     }
   }, [duration, serverIdx, t, connected, setSpeedTestRunning]);

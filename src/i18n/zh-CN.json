@@ -253,6 +253,7 @@
     "measuringDownload": "测量下载速度中…",
     "measuringUpload": "测量上传速度中…",
     "notConnected": "速度测试需要活跃的代理连接。请先连接到配置文件。",
+    "noProxy": "速度测试需要 SOCKS5 代理。请在设置 → 代理端口中启用（默认：1080）。",
     "history": "历史记录",
     "avgDownload": "平均 ↓ Mbps",
     "avgUpload": "平均 ↑ Mbps",
