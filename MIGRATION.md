@@ -98,7 +98,7 @@ In the original `prisma` repository:
 
 ```bash
 cd prisma-gui
-git tag v2.26.0  # Match the last monorepo version
+git tag v2.28.0  # Match the last monorepo version
 git push origin --tags
 ```
 
