@@ -75,6 +75,9 @@ export function useConnection() {
       const routing = config.routing as { rules?: unknown[] } | undefined;
       console.log(`[connect] ${routing?.rules?.length ?? 0} routing rules, ${enabledProviders.length} providers`);
 
+      const tunInConfig = !!(config as Record<string, unknown>).tun;
+      console.log(`[connect] calling api.connect, modes=0x${modes.toString(16)}, tun_in_config=${tunInConfig}`);
+
       const CONNECT_TIMEOUT = 30_000;
       await Promise.race([
         api.connect(JSON.stringify(config), modes),

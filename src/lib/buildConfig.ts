@@ -280,6 +280,7 @@ export function mergeSettingsIntoConfig(
   // TUN — enable if settings toggle OR MODE_TUN flag is active
   const MODE_TUN = 0x04;
   const tunActive = ((modes ?? settings.proxyModes) & MODE_TUN) !== 0;
+  console.log(`[buildConfig] modes=0x${(modes ?? settings.proxyModes).toString(16)}, tunActive=${tunActive}`);
   if (tunActive) {
     const incl = settings.tunIncludeRoutes.split("\n").map(s => s.trim()).filter(Boolean);
     const excl = settings.tunExcludeRoutes.split("\n").map(s => s.trim()).filter(Boolean);
