@@ -82,14 +82,26 @@ pub fn start_vpn_service(
 
     #[cfg(mobile)]
     {
-        // Disconnect any previous session to release bound ports
+        // Check if VPN service is already running with a valid TUN fd.
+        // If so, skip the stop/restart cycle — just reuse the existing TUN.
+        let vpn = app.state::<tauri_plugin_vpn::Vpn<tauri::Wry>>();
+        if let Ok(r) = vpn.get_tun_fd() {
+            if r.fd >= 0 {
+                tracing::info!(
+                    fd = r.fd,
+                    "VPN service already running, reusing existing TUN fd"
+                );
+                unsafe { prisma_ffi::prisma_set_tun_fd(_client, r.fd) };
+                return Ok(());
+            }
+        }
+
+        // No existing VPN — disconnect previous session and start fresh
         let rc = unsafe { prisma_ffi::prisma_disconnect(_client) };
         if rc != PRISMA_OK {
             tracing::warn!(rc, "prisma_disconnect before VPN start returned non-zero");
         }
 
-        let vpn = app.state::<tauri_plugin_vpn::Vpn<tauri::Wry>>();
-        // Stop any existing VPN service first
         let _ = vpn.stop_service();
         std::thread::sleep(std::time::Duration::from_millis(500));
 
