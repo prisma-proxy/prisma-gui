@@ -42,9 +42,18 @@ class PrismaVpnService : VpnService() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        Log.i(TAG, "onStartCommand: action=${intent?.action}, flags=$flags, startId=$startId")
         if (intent?.action == "STOP") {
+            Log.i(TAG, "STOP action received — stopping VPN")
             stopVpn()
             return START_NOT_STICKY
+        }
+
+        // If service was restarted by Android after being killed (null intent),
+        // and we already have a TUN interface, don't restart — just keep running
+        if (intent == null && vpnInterface != null) {
+            Log.i(TAG, "Service restarted by Android, TUN already active — ignoring")
+            return START_STICKY
         }
 
         return try {
@@ -95,11 +104,13 @@ class PrismaVpnService : VpnService() {
     }
 
     override fun onDestroy() {
+        Log.w(TAG, "onDestroy called — Android is killing the VPN service")
         stopVpn()
         super.onDestroy()
     }
 
     override fun onRevoke() {
+        Log.w(TAG, "onRevoke called — VPN permission revoked by user or another VPN app")
         stopVpn()
     }
 
